@@ -3,5 +3,5 @@ import XCTest
 import VersionsTests
 
 var tests = [XCTestCaseEntry]()
-tests += VersionsTests.allTests()
+tests += VersionTests.allTests()
 XCTMain(tests)
