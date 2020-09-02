@@ -161,15 +161,41 @@ public extension DSFVersion {
 // MARK: - Equalities
 
 extension DSFVersion: Equatable, Comparable {
+	/// If this version object has a wildcard, returns true if 'version' is contained in its range
+	///
+	/// For example,
+	///
+	///      `4.4.*` contains `4.4.5.1000`
+	///      `4.4.*` does not contain `4.5.0.1001` or `4.2.3`
+	public func contains(_ version: DSFVersion) -> Bool {
+		// Cannot compare if a version being compared against contains a range
+		if version.hasWildcard == true { return false }
 
-	/// If this object has a wildcard, returns true if 'version' is contained in its range
-	@inlinable public func contains(_ version: DSFVersion) -> Bool {
-		if self.hasWildcard == false || version.hasWildcard == true {
-			return false
-		}
-		return version >= self
+		if self.major.isWildcard { return true } //  v* == v4
+		if self.major.value != version.major.value { return false } //  v4 != v5
+
+		if self.minor.isWildcard { return true } //  v2.* == v2.4
+		if self.minor.value != version.minor.value { return false } //  v2.2 != v2.4
+
+		if self.patch.isWildcard { return true } //  v2.4.* == v2.4.5
+		if self.patch.value != version.patch.value { return false } //  v2.4.3 != v2.4.6
+
+		if self.build.isWildcard { return true } //  v2.4.5.* == v2.4.5.111
+		if self.build.value != version.build.value { return false } //  v2.4.5.201 != v2.4.5.111
+
+		// A perfect match (ie. 1.2.3.4 == 1.2.3.4).  As such it contains it!
+		return true
 	}
 
+	/// Perform an equality check between two version objects
+	/// - Parameters:
+	///   - lhs: left version
+	///   - rhs: right version
+	/// - Returns: true if the two versions are equal, false otherwise
+	///
+	///   When dealing with wildcards, a * matches against either size of the comparison
+	///
+	///   So, `2.* == 2.3` is equivalent to `2.3 == 2.*`
 	public static func == (lhs: Self, rhs: Self) -> Bool {
 		// Major
 
@@ -198,6 +224,7 @@ extension DSFVersion: Equatable, Comparable {
 		return true
 	}
 
+	/// Comparison result
 	public enum ComparisonState {
 		case lesser
 		case equal
@@ -206,7 +233,7 @@ extension DSFVersion: Equatable, Comparable {
 	}
 
 	/// Compare two Version objects. The LHS value cannot contain wildcards
-	public static func compare (lhs: Self, rhs: Self) -> ComparisonState {
+	public static func compare(lhs: Self, rhs: Self) -> ComparisonState {
 		// Left hand side cannot contain a wildcard range
 		if lhs.hasWildcard { return .error }
 
@@ -233,32 +260,26 @@ extension DSFVersion: Equatable, Comparable {
 		return .equal
 	}
 
-
 	@inlinable public static func > (lhs: Self, rhs: Self) -> Bool {
 		// Left hand side cannot contain a wildcard range
-		if lhs.hasWildcard { return false }
 		return DSFVersion.compare(lhs: lhs, rhs: rhs) == .greater
 	}
 
 	@inlinable public static func < (lhs: Self, rhs: Self) -> Bool {
-		if lhs.hasWildcard { return false }
 		return DSFVersion.compare(lhs: lhs, rhs: rhs) == .lesser
 	}
-
+	
 	@inlinable public static func >= (lhs: Self, rhs: Self) -> Bool {
-		if lhs.hasWildcard { return false }
 		let result = DSFVersion.compare(lhs: lhs, rhs: rhs)
 		return result == .greater || result == .equal
 	}
 
 	@inlinable public static func <= (lhs: Self, rhs: Self) -> Bool {
-		if lhs.hasWildcard { return false }
 		let result = DSFVersion.compare(lhs: lhs, rhs: rhs)
 		return result == .lesser || result == .equal
 	}
 
 	@inlinable public static func != (lhs: Self, rhs: Self) -> Bool {
-		if lhs.hasWildcard { return false }
 		return DSFVersion.compare(lhs: lhs, rhs: rhs) != .equal
 	}
 }

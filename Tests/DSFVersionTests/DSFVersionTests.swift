@@ -101,6 +101,11 @@ final class DSFVersionTests: XCTestCase {
 		XCTAssertEqual(v2, v3)
 		XCTAssertEqual(v3, v2)
 
+		let v7 = DSFVersion(5,99)
+		let v8 = DSFVersion(4,4,1)
+		XCTAssertFalse(v3.contains(v7))
+		XCTAssertTrue(v3.contains(v8))
+
 		//  v2 is a fixed DSFVersion, v3 is a range.  Comparison should fail
 		XCTAssertFalse(v2.contains(v3))
 
@@ -120,8 +125,10 @@ final class DSFVersionTests: XCTestCase {
 
 		XCTAssertTrue(DSFVersion(4, 4, -1).contains(DSFVersion(4, 4, 5, 999))) // 4.4.* contains 4.4.5.999
 
-		XCTAssertTrue(DSFVersion(4, 4, -1).contains(DSFVersion(4, 5, 5, 999))) // 4.4.* contains 4.5.5.999
+		XCTAssertFalse(DSFVersion(4, 4, -1).contains(DSFVersion(4, 5, 5, 999))) // 4.4.* does not contain 4.5.5.999
 		XCTAssertFalse(DSFVersion(4, 4, -1).contains(DSFVersion(4, 3, 5, 999))) // 4.4.* does not contain 4.3.5.999
+
+		XCTAssertTrue(DSFVersion(4, 5, 5, 999) >= DSFVersion(4, 4, -1))
 
 		// Cannot check with a wildcard on the left hand side
 		XCTAssertFalse(DSFVersion(14,5,0,-1) > DSFVersion(14,5,0,1000))

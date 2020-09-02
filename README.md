@@ -164,8 +164,9 @@ A range up to **_and including_** the upper bound
 let range = DSFVersion(4)...DSFVersion(5)
    
 range.contains(Version(4))       // YES
-range.contains(Version(4.5.3))   // YES
+range.contains(Version(4,5,3))   // YES
 range.contains(Version(5))       // YES
+range.contains(Version(5,1))     // NO
 ```
 
 ### Closed Range Up To
@@ -175,9 +176,10 @@ A range up to **_but not including_** the upper bound
 ```swift
 let rangeUpTo = DSFVersion(4)..<DSFVersion(5)
 
-range.contains(Version(4))       // YES
-range.contains(Version(4.5.3))   // YES
-range.contains(Version(5))       // NO
+range.contains(Version(3.9.100))  // NO
+range.contains(Version(4))        // YES
+range.contains(Version(4,5,3))    // YES
+range.contains(Version(5))        // NO
 ```
 
 ### Partial Range Support
@@ -189,10 +191,7 @@ assert(rangeAfter.contains(DSFVersion(3,2))
 
 let rangeBeforeInclusive = ...DSFVersion(7,8,1)     // All version numbers BEFORE and including 7.8.1
 let rangeBeforeNonInclusive = ..<DSFVersion(7,8,1)  // All version numbers BEFORE not including 7.8.1
-
 ```
-
-
 
 ## Codable support
 
