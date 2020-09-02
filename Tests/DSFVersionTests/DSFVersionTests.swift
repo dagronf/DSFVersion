@@ -230,19 +230,22 @@ final class DSFVersionTests: XCTestCase {
 		XCTAssertEqual(#""55.*""#, str2)
 
 		struct TestValue: Codable, Equatable {
-			let iVal: Int
-			let DSFVersion: DSFVersion
-			init(iVal: Int, DSFVersion: DSFVersion) {
-				self.iVal = iVal
-				self.DSFVersion = DSFVersion
+			let version: DSFVersion
+			let name: String
+			let value: Int
+			init(version: DSFVersion, name: String, value: Int) {
+				self.version = version
+				self.name = name
+				self.value = value
 			}
 		}
 
-		let v3 = TestValue(iVal: 3, DSFVersion: DSFVersion(3, 6, DSFVersion.Wildcard))
+		let v3 = TestValue(version: DSFVersion(3, 6, -1), name: "counter", value: 3)
 		let data3 = try JSONEncoder().encode(v3)
 
 		let str3 = String(data: data3, encoding: .utf8)
-		XCTAssertEqual(#"{"DSFVersion":"3.6.*","iVal":3}"#, str3)
+
+		XCTAssertEqual(#"{"version":"3.6.*","name":"counter","value":3}"#, str3)
 
 		let v3rec = try JSONDecoder().decode(TestValue.self, from: data3)
 		XCTAssertEqual(v3, v3rec)
@@ -264,8 +267,6 @@ final class DSFVersionTests: XCTestCase {
 		// See whether the version we read was without our required range
 		let range = lowerBound ..< upperBound
 		assert(range.contains(myVersion))
-
-		let range2 = lowerBound ..< lowerBound
 	}
 
 	static var allTests = [
@@ -276,5 +277,6 @@ final class DSFVersionTests: XCTestCase {
 		("testClosedRangeThrough", testClosedRangeThrough),
 		("testClosedRangeUpTo", testClosedRangeUpTo),
 		("testCodable", testCodable),
+		("testDocoExample", testDocoExample),
 	]
 }

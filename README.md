@@ -176,7 +176,7 @@ A range up to **_but not including_** the upper bound
 ```swift
 let rangeUpTo = DSFVersion(4)..<DSFVersion(5)
 
-range.contains(Version(3.9.100))  // NO
+range.contains(Version(3,9,100))  // NO
 range.contains(Version(4))        // YES
 range.contains(Version(4,5,3))    // YES
 range.contains(Version(5))        // NO
