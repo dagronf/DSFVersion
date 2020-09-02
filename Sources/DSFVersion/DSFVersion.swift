@@ -24,10 +24,11 @@ import Foundation
 public struct DSFVersion: CustomDebugStringConvertible {
 	/// Errors thrown during parsing
 	public enum VersionError: Error {
+		/// Tried to parse a version from a string and it was incompatible.
 		case InvalidVersionString
 	}
 
-	/// Errors thrown during parsing
+	/// Helper constant for wildcard support
 	public static let Wildcard: Int32 = -1
 
 	// Regular Expression definition
@@ -79,12 +80,7 @@ public struct DSFVersion: CustomDebugStringConvertible {
 	///   - patch: The patch version number. Use -1 for a wildcard, or nil for not specified
 	///   - build: The build version number. Use -1 for a wildcard, or nil for not specified
 	init(_ major: Int32, _ minor: Int32? = nil, _ patch: Int32? = nil, _ build: Int32? = nil) {
-		var fields = [FieldValue]()
-		fields.append(FieldValue(major))
-		fields.append(FieldValue(minor))
-		fields.append(FieldValue(patch))
-		fields.append(FieldValue(build))
-		self.fields = fields
+		self.fields = [FieldValue(major), FieldValue(minor), FieldValue(patch), FieldValue(build)]
 	}
 
 	/// Try to create a DSFVersion object from the provided string.
@@ -117,6 +113,7 @@ public struct DSFVersion: CustomDebugStringConvertible {
 			}
 			else {
 				guard let value = Int32(s) else {
+					// This is impossible to hit given the regex definition
 					throw VersionError.InvalidVersionString
 				}
 				fields.append(FieldValue(value))
@@ -163,21 +160,14 @@ public extension DSFVersion {
 
 // MARK: - Equalities
 
-extension DSFVersion: Equatable {
+extension DSFVersion: Equatable, Comparable {
+
 	/// If this object has a wildcard, returns true if 'version' is contained in its range
 	@inlinable public func contains(_ version: DSFVersion) -> Bool {
 		if self.hasWildcard == false || version.hasWildcard == true {
 			return false
 		}
 		return version >= self
-	}
-
-	@inlinable public static func != (lhs: Self, rhs: Self) -> Bool {
-		return !(lhs == rhs)
-	}
-
-	@inlinable public static func < (lhs: Self, rhs: Self) -> Bool {
-		return !(lhs >= rhs)
 	}
 
 	public static func == (lhs: Self, rhs: Self) -> Bool {
@@ -208,85 +198,68 @@ extension DSFVersion: Equatable {
 		return true
 	}
 
-	public static func >= (lhs: Self, rhs: Self) -> Bool {
-		// Left hand side cannot contain a wildcard range
-		if lhs.hasWildcard { return false }
+	public enum ComparisonState {
+		case lesser
+		case equal
+		case greater
+		case error
+	}
 
-		if lhs == rhs {
-			return true
-		}
+	/// Compare two Version objects. The LHS value cannot contain wildcards
+	public static func compare (lhs: Self, rhs: Self) -> ComparisonState {
+		// Left hand side cannot contain a wildcard range
+		if lhs.hasWildcard { return .error }
 
 		// Major check
-		if lhs.major.value < rhs.major.value { return false }
-		if lhs.major.value > rhs.major.value { return true }
+		if lhs.major.value < rhs.major.value { return .lesser }
+		if lhs.major.value > rhs.major.value { return .greater }
 
 		// Minor check
 
-		if lhs.minor.value < rhs.minor.value { return false }
-		if lhs.minor.value > rhs.minor.value { return true }
+		if lhs.minor.value < rhs.minor.value { return .lesser }
+		if lhs.minor.value > rhs.minor.value { return .greater }
 
 		// Patch check
 
-		if lhs.patch.value < rhs.patch.value { return false }
-		if lhs.patch.value > rhs.patch.value { return true }
+		if lhs.patch.value < rhs.patch.value { return .lesser }
+		if lhs.patch.value > rhs.patch.value { return .greater }
 
 		// Build check
 
-		if lhs.build.value < rhs.build.value { return false }
-		if lhs.build.value > rhs.build.value { return true }
+		if lhs.build.value < rhs.build.value { return .lesser }
+		if lhs.build.value > rhs.build.value { return .greater }
 
-		return true
-	}
-}
-
-// MARK: - Range support
-
-public extension DSFVersion {
-	class ClosedRange_Core {
-		public let lowerBound: DSFVersion
-		public let upperBound: DSFVersion
-
-		// We can't use this class by itself, it must be overridden with the 'contains' method
-		fileprivate init(lowerBound: DSFVersion, upperBound: DSFVersion) {
-			if lowerBound.hasWildcard || upperBound.hasWildcard {
-				fatalError("Bounds cannot contain wildcards")
-			}
-			if lowerBound >= upperBound {
-				fatalError("Lowerbound must be lower than upperbound")
-			}
-			self.lowerBound = lowerBound
-			self.upperBound = upperBound
-		}
-
-		public func contains(_: DSFVersion) -> Bool {
-			// Must use inherited class
-			fatalError("Must use inherited classes")
-		}
+		// Values are equal
+		return .equal
 	}
 
-	/// A version range from `lowerBound` up to and including `upperBound`
-	class ClosedRangeThrough: ClosedRange_Core {
-		override public init(lowerBound: DSFVersion, upperBound: DSFVersion) {
-			super.init(lowerBound: lowerBound, upperBound: upperBound)
-		}
 
-		override public func contains(_ version: DSFVersion) -> Bool {
-			return version >= self.lowerBound
-				&& self.upperBound >= version
-		}
+	@inlinable public static func > (lhs: Self, rhs: Self) -> Bool {
+		// Left hand side cannot contain a wildcard range
+		if lhs.hasWildcard { return false }
+		return DSFVersion.compare(lhs: lhs, rhs: rhs) == .greater
 	}
 
-	/// A version range from `lowerBound` up to (not including) `upperBound`
-	class ClosedRangeUpTo: ClosedRange_Core {
-		override public init(lowerBound: DSFVersion, upperBound: DSFVersion) {
-			super.init(lowerBound: lowerBound, upperBound: upperBound)
-		}
+	@inlinable public static func < (lhs: Self, rhs: Self) -> Bool {
+		if lhs.hasWildcard { return false }
+		return DSFVersion.compare(lhs: lhs, rhs: rhs) == .lesser
+	}
 
-		override public func contains(_ version: DSFVersion) -> Bool {
-			return version != self.upperBound
-				&& version >= self.lowerBound
-				&& self.upperBound >= version
-		}
+	@inlinable public static func >= (lhs: Self, rhs: Self) -> Bool {
+		if lhs.hasWildcard { return false }
+		let result = DSFVersion.compare(lhs: lhs, rhs: rhs)
+		return result == .greater || result == .equal
+	}
+
+	@inlinable public static func <= (lhs: Self, rhs: Self) -> Bool {
+		if lhs.hasWildcard { return false }
+		let result = DSFVersion.compare(lhs: lhs, rhs: rhs)
+		return result == .lesser || result == .equal
+	}
+
+	@inlinable public static func != (lhs: Self, rhs: Self) -> Bool {
+		if lhs.hasWildcard { return false }
+		return DSFVersion.compare(lhs: lhs, rhs: rhs) != .equal
 	}
 }
 

@@ -21,15 +21,6 @@
 @testable import DSFVersion
 import XCTest
 
-@inlinable public func XCTAssertNoThrowWithResult<T>(_ expression: @autoclosure () throws -> T, _ message: String = "", file: StaticString = #filePath, line: UInt = #line) -> T? {
-	func executeAndAssignResult(_ expression: @autoclosure () throws -> T, to: inout T?) rethrows {
-		to = try expression()
-	}
-	var result: T?
-	XCTAssertNoThrow(try executeAndAssignResult(expression(), to: &result), message, file: file, line: line)
-	return result
-}
-
 final class DSFVersionTests: XCTestCase {
 	func testSimple() throws {
 		let v1 = DSFVersion(1)
@@ -56,6 +47,10 @@ final class DSFVersionTests: XCTestCase {
 
 		let v4 = try DSFVersion("15.3.4")
 		XCTAssertEqual(DSFVersion(15, 3, 4), v4)
+		XCTAssertEqual(v4.stringValue, "15.3.4")
+
+		let v8 = try DSFVersion("15.3.4.*")
+		XCTAssertEqual(v8.stringValue, "15.3.4.*")
 
 		XCTAssertNotEqual(DSFVersion(15), v4)
 		XCTAssertNotEqual(DSFVersion(15, 3), v4)
@@ -71,13 +66,14 @@ final class DSFVersionTests: XCTestCase {
 		XCTAssertThrowsError(try DSFVersion("macOS 10.2.2"))
 		XCTAssertThrowsError(try DSFVersion("cat"))
 		XCTAssertThrowsError(try DSFVersion("1,2,3,4"))
-		let v2 = XCTAssertNoThrowWithResult(try DSFVersion("1.2.3.*"))
+		let v2 = try DSFVersion("1.2.3.*")
 		let v333 = try XCTUnwrap(v2)
 		XCTAssert(v333.major.value == 1)
 		XCTAssertNoThrow(try DSFVersion("1.*"))
 		XCTAssertNoThrow(try DSFVersion("1"))
 		XCTAssertThrowsError(try DSFVersion("1."))
 		XCTAssertThrowsError(try DSFVersion(".2.3.4"))
+		XCTAssertThrowsError(try DSFVersion("1.2.a.4"))
 	}
 
 	func testEquality() throws {
@@ -126,15 +122,19 @@ final class DSFVersionTests: XCTestCase {
 
 		XCTAssertTrue(DSFVersion(4, 4, -1).contains(DSFVersion(4, 5, 5, 999))) // 4.4.* contains 4.5.5.999
 		XCTAssertFalse(DSFVersion(4, 4, -1).contains(DSFVersion(4, 3, 5, 999))) // 4.4.* does not contain 4.3.5.999
+
+		// Cannot check with a wildcard on the left hand side
+		XCTAssertFalse(DSFVersion(14,5,0,-1) > DSFVersion(14,5,0,1000))
+		XCTAssertFalse(DSFVersion(14,5,0,-1) < DSFVersion(14,5,0,1000))
+
+		XCTAssertGreaterThan(DSFVersion(14,5,0), DSFVersion(14,5,-1))	// 14.5.0 > 14.5.*
+
 	}
 
 	func testClosedRangeThrough() throws {
 		// A closed range between v4 and v5 (inclusive)
 
-		let range = DSFVersion.ClosedRangeThrough(
-			lowerBound: DSFVersion(4),
-			upperBound: DSFVersion(5)
-		)
+		let range = DSFVersion(4)...DSFVersion(5)
 
 		let v2 = try DSFVersion("4.4.5")
 
@@ -146,15 +146,21 @@ final class DSFVersionTests: XCTestCase {
 
 		XCTAssertTrue(range.contains(DSFVersion(4)))
 		XCTAssertTrue(range.contains(DSFVersion(5)))
+
+		// Check the Range using Swift range comparison
+
+		let range2 = DSFVersion(1,0) ... DSFVersion(1,2)
+		XCTAssertTrue(range2.contains(DSFVersion(1,1)))
+		XCTAssertTrue(range2.contains(DSFVersion(1,0,0,0)))
+		XCTAssertTrue(range2.contains(DSFVersion(1,2)))
+		XCTAssertTrue(range2.contains(DSFVersion(1,2,0,0)))
+		XCTAssertFalse(range2.contains(DSFVersion(1,2,0,1)))
 	}
 
 	func testClosedRangeUpTo() throws {
 		// A closed range between v4 and v5 (not including v5)
 
-		let rangeUpTo = DSFVersion.ClosedRangeUpTo(
-			lowerBound: DSFVersion(4),
-			upperBound: DSFVersion(5)
-		)
+		let rangeUpTo = DSFVersion(4)..<DSFVersion(5)
 
 		let v2 = try DSFVersion("4.4.5")
 
@@ -170,6 +176,30 @@ final class DSFVersionTests: XCTestCase {
 
 		XCTAssertTrue(rangeUpTo.contains(DSFVersion(4)))
 		XCTAssertFalse(rangeUpTo.contains(DSFVersion(5)))
+
+		// Check the Range using Swift range comparison
+
+		let range = DSFVersion(1,0) ..< DSFVersion(1,2)
+		XCTAssertTrue(range.contains(DSFVersion(1,1)))
+		XCTAssertTrue(range.contains(DSFVersion(1,0,0,0)))
+		XCTAssertFalse(range.contains(DSFVersion(1,2)))
+	}
+
+	func testPartialRanges() {
+		// Partial range check
+		let r3 = DSFVersion(1,2)...
+		XCTAssertTrue(r3.contains(DSFVersion(1,3)))
+		XCTAssertTrue(r3.contains(DSFVersion(3,2,15,6)))
+		XCTAssertFalse(r3.contains(DSFVersion(1,1)))
+
+		let r4 = ..<DSFVersion(14,5,7)
+		XCTAssertTrue(r4.contains(DSFVersion(1)))
+		XCTAssertTrue(r4.contains(DSFVersion(14,5,6)))
+		XCTAssertFalse(r4.contains(DSFVersion(14,5,7)))
+
+		let r5 = ...DSFVersion(14,5,7)
+		XCTAssertTrue(r5.contains(DSFVersion(14,5,7)))
+		XCTAssertFalse(r5.contains(DSFVersion(14,5,7,1)))
 	}
 
 	func testCodable() throws {
@@ -209,6 +239,26 @@ final class DSFVersionTests: XCTestCase {
 
 		let v3rec = try JSONDecoder().decode(TestValue.self, from: data3)
 		XCTAssertEqual(v3, v3rec)
+	}
+
+	func testDocoExample() throws {
+		let lowerBound = DSFVersion(10,4)
+		let upperBound = DSFVersion(10,5)
+
+		XCTAssertLessThan(lowerBound, upperBound)
+
+		// Read from somewhere, and try to convert to a version definition
+		let strVer = "10.4.5"
+		let myVersion = try DSFVersion(strVer)   // Throws if strVer isn't a version
+
+		// Simple comparison to verify if our read version is greater than our lower bound
+		XCTAssertLessThan(lowerBound, myVersion)
+
+		// See whether the version we read was without our required range
+		let range = lowerBound ..< upperBound
+		assert(range.contains(myVersion))
+
+		let range2 = lowerBound ..< lowerBound
 	}
 
 	static var allTests = [
