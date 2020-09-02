@@ -28,6 +28,14 @@ public struct DSFVersion: CustomDebugStringConvertible {
 		case InvalidVersionString
 	}
 
+	/// An enum identifying the fields within the version
+	public enum Field {
+		case major
+		case minor
+		case patch
+		case build
+	}
+
 	/// Helper constant for wildcard support
 	public static let Wildcard: Int32 = -1
 
@@ -161,7 +169,6 @@ public extension DSFVersion {
 // MARK: - Equalities
 
 extension DSFVersion: Equatable, Comparable {
-
 	/// Comparison result
 	public enum ComparisonResult {
 		case ascending
@@ -275,7 +282,7 @@ extension DSFVersion: Equatable, Comparable {
 	@inlinable public static func < (lhs: Self, rhs: Self) -> Bool {
 		return DSFVersion.compare(lhs: lhs, rhs: rhs) == .ascending
 	}
-	
+
 	@inlinable public static func >= (lhs: Self, rhs: Self) -> Bool {
 		let result = DSFVersion.compare(lhs: lhs, rhs: rhs)
 		return result == .descending || result == .same
@@ -288,6 +295,31 @@ extension DSFVersion: Equatable, Comparable {
 
 	@inlinable public static func != (lhs: Self, rhs: Self) -> Bool {
 		return DSFVersion.compare(lhs: lhs, rhs: rhs) != .same
+	}
+}
+
+// MARK: - Increment support
+
+public extension DSFVersion {
+	/// Increment a field number, optionally zeroing all fields of lesser significance
+	/// - Parameters:
+	///   - field: The field to increment
+	///   - zeroLower: if true, zeroes all lesser significant fields  (eg. 10.4.3.1000 --> 10.5.0.0)
+	/// - Returns: A new DSFVersion object, or nil if the original version has a wildcard
+	func increment(_ field: Field, zeroLower: Bool = true) -> DSFVersion? {
+		if self.hasWildcard {
+			return nil
+		}
+		switch field {
+		case .major:
+			return DSFVersion(self.major.value + 1, zeroLower ? 0 : self.minor.value, zeroLower ? 0 : self.patch.value, zeroLower ? 0 : self.build.value)
+		case .minor:
+			return DSFVersion(self.major.value, self.minor.value + 1, zeroLower ? 0 : self.patch.value, zeroLower ? 0 : self.build.value)
+		case .patch:
+			return DSFVersion(self.major.value, self.minor.value, self.patch.value + 1, zeroLower ? 0 : self.build.value)
+		case .build:
+			return DSFVersion(self.major.value, self.minor.value, self.patch.value, self.build.value + 1)
+		}
 	}
 }
 

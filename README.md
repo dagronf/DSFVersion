@@ -193,6 +193,26 @@ let rangeBeforeInclusive = ...DSFVersion(7,8,1)     // All version numbers BEFOR
 let rangeBeforeNonInclusive = ..<DSFVersion(7,8,1)  // All version numbers BEFORE not including 7.8.1
 ```
 
+## Incrementer
+
+Simple increment support.
+
+```swift
+let vv12 = DSFVersion(1,2)               // Start with v1.2
+
+let vv1201 = vv12.increment(.build)!     // Move to v1.2.0.1
+assert(vv1201 == DSFVersion(1,2,0,1))
+
+let vv121 = vv1201.increment(.patch)!    // Move from v1.2.0.1 -> v1.2.1
+assert(vv121 == DSFVersion(1,2,1))
+
+let vv13 = vv121.increment(.minor)!      // Move from v1.2.1 -> v1.3
+assert(vv13 == DSFVersion(1,3))
+
+let vv2 = vv13.increment(.major)!        // Move from v1.3 -> v2.0
+assert(vv2 == DSFVersion(2))
+```
+
 ## Codable support
 
 DSFVersion is fully codable, so you can use DSFVersion objects in your codable structs/classes.

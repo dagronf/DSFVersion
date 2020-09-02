@@ -101,8 +101,8 @@ final class DSFVersionTests: XCTestCase {
 		XCTAssertEqual(v2, v3)
 		XCTAssertEqual(v3, v2)
 
-		let v7 = DSFVersion(5,99)
-		let v8 = DSFVersion(4,4,1)
+		let v7 = DSFVersion(5, 99)
+		let v8 = DSFVersion(4, 4, 1)
 		XCTAssertFalse(v3.contains(v7))
 		XCTAssertTrue(v3.contains(v8))
 
@@ -131,17 +131,16 @@ final class DSFVersionTests: XCTestCase {
 		XCTAssertTrue(DSFVersion(4, 5, 5, 999) >= DSFVersion(4, 4, -1))
 
 		// Cannot check with a wildcard on the left hand side
-		XCTAssertFalse(DSFVersion(14,5,0,-1) > DSFVersion(14,5,0,1000))
-		XCTAssertFalse(DSFVersion(14,5,0,-1) < DSFVersion(14,5,0,1000))
+		XCTAssertFalse(DSFVersion(14, 5, 0, -1) > DSFVersion(14, 5, 0, 1000))
+		XCTAssertFalse(DSFVersion(14, 5, 0, -1) < DSFVersion(14, 5, 0, 1000))
 
-		XCTAssertGreaterThan(DSFVersion(14,5,0), DSFVersion(14,5,-1))	// 14.5.0 > 14.5.*
-
+		XCTAssertGreaterThan(DSFVersion(14, 5, 0), DSFVersion(14, 5, -1)) // 14.5.0 > 14.5.*
 	}
 
 	func testClosedRangeThrough() throws {
 		// A closed range between v4 and v5 (inclusive)
 
-		let range = DSFVersion(4)...DSFVersion(5)
+		let range = DSFVersion(4) ... DSFVersion(5)
 
 		let v2 = try DSFVersion("4.4.5")
 
@@ -156,18 +155,18 @@ final class DSFVersionTests: XCTestCase {
 
 		// Check the Range using Swift range comparison
 
-		let range2 = DSFVersion(1,0) ... DSFVersion(1,2)
-		XCTAssertTrue(range2.contains(DSFVersion(1,1)))
-		XCTAssertTrue(range2.contains(DSFVersion(1,0,0,0)))
-		XCTAssertTrue(range2.contains(DSFVersion(1,2)))
-		XCTAssertTrue(range2.contains(DSFVersion(1,2,0,0)))
-		XCTAssertFalse(range2.contains(DSFVersion(1,2,0,1)))
+		let range2 = DSFVersion(1, 0) ... DSFVersion(1, 2)
+		XCTAssertTrue(range2.contains(DSFVersion(1, 1)))
+		XCTAssertTrue(range2.contains(DSFVersion(1, 0, 0, 0)))
+		XCTAssertTrue(range2.contains(DSFVersion(1, 2)))
+		XCTAssertTrue(range2.contains(DSFVersion(1, 2, 0, 0)))
+		XCTAssertFalse(range2.contains(DSFVersion(1, 2, 0, 1)))
 	}
 
 	func testClosedRangeUpTo() throws {
 		// A closed range between v4 and v5 (not including v5)
 
-		let rangeUpTo = DSFVersion(4)..<DSFVersion(5)
+		let rangeUpTo = DSFVersion(4) ..< DSFVersion(5)
 
 		let v2 = try DSFVersion("4.4.5")
 
@@ -186,27 +185,27 @@ final class DSFVersionTests: XCTestCase {
 
 		// Check the Range using Swift range comparison
 
-		let range = DSFVersion(1,0) ..< DSFVersion(1,2)
-		XCTAssertTrue(range.contains(DSFVersion(1,1)))
-		XCTAssertTrue(range.contains(DSFVersion(1,0,0,0)))
-		XCTAssertFalse(range.contains(DSFVersion(1,2)))
+		let range = DSFVersion(1, 0) ..< DSFVersion(1, 2)
+		XCTAssertTrue(range.contains(DSFVersion(1, 1)))
+		XCTAssertTrue(range.contains(DSFVersion(1, 0, 0, 0)))
+		XCTAssertFalse(range.contains(DSFVersion(1, 2)))
 	}
 
 	func testPartialRanges() {
 		// Partial range check
-		let r3 = DSFVersion(1,2)...
-		XCTAssertTrue(r3.contains(DSFVersion(1,3)))
-		XCTAssertTrue(r3.contains(DSFVersion(3,2,15,6)))
-		XCTAssertFalse(r3.contains(DSFVersion(1,1)))
+		let r3 = DSFVersion(1, 2)...
+		XCTAssertTrue(r3.contains(DSFVersion(1, 3)))
+		XCTAssertTrue(r3.contains(DSFVersion(3, 2, 15, 6)))
+		XCTAssertFalse(r3.contains(DSFVersion(1, 1)))
 
-		let r4 = ..<DSFVersion(14,5,7)
+		let r4 = ..<DSFVersion(14, 5, 7)
 		XCTAssertTrue(r4.contains(DSFVersion(1)))
-		XCTAssertTrue(r4.contains(DSFVersion(14,5,6)))
-		XCTAssertFalse(r4.contains(DSFVersion(14,5,7)))
+		XCTAssertTrue(r4.contains(DSFVersion(14, 5, 6)))
+		XCTAssertFalse(r4.contains(DSFVersion(14, 5, 7)))
 
-		let r5 = ...DSFVersion(14,5,7)
-		XCTAssertTrue(r5.contains(DSFVersion(14,5,7)))
-		XCTAssertFalse(r5.contains(DSFVersion(14,5,7,1)))
+		let r5 = ...DSFVersion(14, 5, 7)
+		XCTAssertTrue(r5.contains(DSFVersion(14, 5, 7)))
+		XCTAssertFalse(r5.contains(DSFVersion(14, 5, 7, 1)))
 	}
 
 	func testCodable() throws {
@@ -252,14 +251,14 @@ final class DSFVersionTests: XCTestCase {
 	}
 
 	func testDocoExample() throws {
-		let lowerBound = DSFVersion(10,4)
-		let upperBound = DSFVersion(10,5)
+		let lowerBound = DSFVersion(10, 4)
+		let upperBound = DSFVersion(10, 5)
 
 		XCTAssertLessThan(lowerBound, upperBound)
 
 		// Read from somewhere, and try to convert to a version definition
 		let strVer = "10.4.5"
-		let myVersion = try DSFVersion(strVer)   // Throws if strVer isn't a version
+		let myVersion = try DSFVersion(strVer) // Throws if strVer isn't a version
 
 		// Simple comparison to verify if our read version is greater than our lower bound
 		XCTAssertLessThan(lowerBound, myVersion)
@@ -267,6 +266,38 @@ final class DSFVersionTests: XCTestCase {
 		// See whether the version we read was without our required range
 		let range = lowerBound ..< upperBound
 		assert(range.contains(myVersion))
+	}
+
+	func testIncrementer() throws {
+		// Check that wildcard increment fails as expected
+		XCTAssertNil(DSFVersion(10, 4, 3, -1).increment(.minor))
+
+		// Increment with zeroing
+		let v1 = try XCTUnwrap(DSFVersion(10, 4, 3, 1000).increment(.minor))
+		XCTAssertEqual(v1, DSFVersion(10, 5))
+
+		// Increment without zeroing
+		let v2 = try XCTUnwrap(DSFVersion(10, 4, 3, 1000).increment(.minor, zeroLower: false))
+		XCTAssertEqual(v2, DSFVersion(10, 5, 3, 1000))
+
+		// Start with v1.2
+		let vv12 = DSFVersion(1, 2)
+
+		// Move to v1.2.0.1
+		let vv1201 = vv12.increment(.build)
+		XCTAssertEqual(vv1201, DSFVersion(1, 2, 0, 1))
+
+		// Move from v1.2.0.1 -> v1.2.1
+		let vv121 = vv1201!.increment(.patch)
+		XCTAssertEqual(vv121, DSFVersion(1, 2, 1))
+
+		// Move from v1.2.1 -> v1.3
+		let vv13 = vv121!.increment(.minor)
+		XCTAssertEqual(vv13, DSFVersion(1, 3))
+
+		// Move from v1.3 -> v2.0
+		let vv2 = vv13!.increment(.major)
+		XCTAssertEqual(vv2, DSFVersion(2))
 	}
 
 	static var allTests = [
@@ -278,5 +309,6 @@ final class DSFVersionTests: XCTestCase {
 		("testClosedRangeUpTo", testClosedRangeUpTo),
 		("testCodable", testCodable),
 		("testDocoExample", testDocoExample),
+		("testIncrementer", testIncrementer),
 	]
 }
