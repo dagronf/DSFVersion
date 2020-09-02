@@ -290,6 +290,7 @@ final class DSFVersionTests: XCTestCase {
 		// Move from v1.2.0.1 -> v1.2.1
 		let vv121 = vv1201!.increment(.patch)
 		XCTAssertEqual(vv121, DSFVersion(1, 2, 1))
+		XCTAssertEqual("1.2.1", vv121!.stringValue)
 
 		// Move from v1.2.1 -> v1.3
 		let vv13 = vv121!.increment(.minor)
@@ -298,6 +299,8 @@ final class DSFVersionTests: XCTestCase {
 		// Move from v1.3 -> v2.0
 		let vv2 = vv13!.increment(.major)
 		XCTAssertEqual(vv2, DSFVersion(2))
+
+		XCTAssertEqual("2", vv2!.stringValue)
 	}
 
 	static var allTests = [

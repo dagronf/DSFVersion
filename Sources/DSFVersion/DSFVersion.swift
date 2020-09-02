@@ -87,7 +87,7 @@ public struct DSFVersion: CustomDebugStringConvertible {
 	///   - minor: The minor version number. Use -1 for a wildcard, or nil for not specified
 	///   - patch: The patch version number. Use -1 for a wildcard, or nil for not specified
 	///   - build: The build version number. Use -1 for a wildcard, or nil for not specified
-	init(_ major: Int32, _ minor: Int32? = nil, _ patch: Int32? = nil, _ build: Int32? = nil) {
+	public init(_ major: Int32, _ minor: Int32? = nil, _ patch: Int32? = nil, _ build: Int32? = nil) {
 		self.fields = [FieldValue(major), FieldValue(minor), FieldValue(patch), FieldValue(build)]
 	}
 
@@ -101,7 +101,7 @@ public struct DSFVersion: CustomDebugStringConvertible {
 	/// Create a Version object from the provided string. Throws 'VersionError.InvalidVersionString
 	/// - Parameter versionString: the string to parse
 	/// - Throws: VersionError.InvalidVersionString if the string cannot be parsed
-	init(_ versionString: String) throws {
+	public init(_ versionString: String) throws {
 		let nsrange = NSRange(versionString.startIndex ..< versionString.endIndex, in: versionString)
 
 		guard let match = DSFVersion.Regex.firstMatch(in: versionString, options: [], range: nsrange) else {
@@ -312,11 +312,11 @@ public extension DSFVersion {
 		}
 		switch field {
 		case .major:
-			return DSFVersion(self.major.value + 1, zeroLower ? 0 : self.minor.value, zeroLower ? 0 : self.patch.value, zeroLower ? 0 : self.build.value)
+			return DSFVersion(self.major.value + 1, zeroLower ? nil : self.minor.value, zeroLower ? nil : self.patch.value, zeroLower ? nil : self.build.value)
 		case .minor:
-			return DSFVersion(self.major.value, self.minor.value + 1, zeroLower ? 0 : self.patch.value, zeroLower ? 0 : self.build.value)
+			return DSFVersion(self.major.value, self.minor.value + 1, zeroLower ? nil : self.patch.value, zeroLower ? nil : self.build.value)
 		case .patch:
-			return DSFVersion(self.major.value, self.minor.value, self.patch.value + 1, zeroLower ? 0 : self.build.value)
+			return DSFVersion(self.major.value, self.minor.value, self.patch.value + 1, zeroLower ? nil : self.build.value)
 		case .build:
 			return DSFVersion(self.major.value, self.minor.value, self.patch.value, self.build.value + 1)
 		}
