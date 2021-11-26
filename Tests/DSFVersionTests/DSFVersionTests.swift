@@ -23,43 +23,59 @@ import XCTest
 
 final class DSFVersionTests: XCTestCase {
 	func testSimple() throws {
-		let v1 = DSFVersion(1)
-		XCTAssertTrue(v1.major.isSpecified)
-		XCTAssertFalse(v1.minor.isSpecified)
-		XCTAssertFalse(v1.patch.isSpecified)
-		XCTAssertFalse(v1.build.isSpecified)
-		XCTAssertEqual(v1.major.value, 1)
+		performTest {
+			let v1 = DSFVersion(1)
+			XCTAssertTrue(v1.major.isSpecified)
+			XCTAssertFalse(v1.minor.isSpecified)
+			XCTAssertFalse(v1.patch.isSpecified)
+			XCTAssertFalse(v1.build.isSpecified)
+			XCTAssertEqual(v1.major.value, 1)
 
-		let v2 = DSFVersion(DSFVersion.Wildcard)
-		XCTAssertTrue(v2.major.isWildcard)
-		XCTAssertTrue(v2.major.isSpecified)
-		XCTAssertFalse(v2.minor.isSpecified)
-		XCTAssertFalse(v2.patch.isSpecified)
-		XCTAssertFalse(v2.build.isSpecified)
+			let v2 = DSFVersion(DSFVersion.Wildcard)
+			XCTAssertTrue(v2.major.isWildcard)
+			XCTAssertTrue(v2.major.isSpecified)
+			XCTAssertFalse(v2.minor.isSpecified)
+			XCTAssertFalse(v2.patch.isSpecified)
+			XCTAssertFalse(v2.build.isSpecified)
 
-		let v3 = DSFVersion(15, DSFVersion.Wildcard)
-		XCTAssertFalse(v3.major.isWildcard)
-		XCTAssertTrue(v3.major.isSpecified)
-		XCTAssertEqual(v3.major.value, 15)
+			let v3 = DSFVersion(15, DSFVersion.Wildcard)
+			XCTAssertFalse(v3.major.isWildcard)
+			XCTAssertTrue(v3.major.isSpecified)
+			XCTAssertEqual(v3.major.value, 15)
 
-		XCTAssertTrue(v3.minor.isWildcard)
-		XCTAssertTrue(v3.minor.isSpecified)
+			XCTAssertTrue(v3.minor.isWildcard)
+			XCTAssertTrue(v3.minor.isSpecified)
 
-		let v4 = try DSFVersion("15.3.4")
-		XCTAssertEqual(DSFVersion(15, 3, 4), v4)
-		XCTAssertEqual(v4.stringValue, "15.3.4")
+			let v4 = try DSFVersion("15.3.4")
+			XCTAssertEqual(DSFVersion(15, 3, 4), v4)
+			XCTAssertEqual(v4.stringValue, "15.3.4")
 
-		let v8 = try DSFVersion("15.3.4.*")
-		XCTAssertEqual(v8.stringValue, "15.3.4.*")
+			let v8 = try DSFVersion("15.3.4.*")
+			XCTAssertEqual(v8.stringValue, "15.3.4.*")
 
-		XCTAssertNotEqual(DSFVersion(15), v4)
-		XCTAssertNotEqual(DSFVersion(15, 3), v4)
-		XCTAssertNotEqual(DSFVersion(15, 3, 4, 10001), v4)
+			XCTAssertNotEqual(DSFVersion(15), v4)
+			XCTAssertNotEqual(DSFVersion(15, 3), v4)
+			XCTAssertNotEqual(DSFVersion(15, 3, 4, 10001), v4)
 
-		let v5 = DSFVersion.TryParse("99.8.*")
-		XCTAssertNotNil(v5)
-		let v6 = DSFVersion.TryParse("99.8..*")
-		XCTAssertNil(v6)
+			let v5 = try XCTUnwrap(try? DSFVersion.TryParse("99.8.*"))
+			XCTAssertNotNil(v5)
+
+			// Make sure all field formats correct
+			XCTAssertNoThrow(try DSFVersion.TryParse("1.2.3.4"))
+			XCTAssertNoThrow(try DSFVersion.TryParse("1.2.3.*"))
+			XCTAssertNoThrow(try DSFVersion.TryParse("1.2.*"))
+			XCTAssertNoThrow(try DSFVersion.TryParse("1.*"))
+			XCTAssertNoThrow(try DSFVersion.TryParse("*"))                // Odd, but valid
+			XCTAssertThrowsError(try DSFVersion.TryParse("1.0.0.0.*"))    // too many fields
+
+			// check for an invalid string
+			XCTAssertThrowsError(try DSFVersion.TryParse("99.8..*"))
+			XCTAssertThrowsError(try DSFVersion.TryParse("A.B.C.D"))
+			XCTAssertThrowsError(try DSFVersion.TryParse("1.2.3.D"))
+			XCTAssertThrowsError(try DSFVersion.TryParse("🐼.2.3"))       // non-digits character
+			XCTAssertThrowsError(try DSFVersion.TryParse("1.*.*"))        // multiple wildcards
+
+		}
 	}
 
 	func testParse() throws {
@@ -74,6 +90,14 @@ final class DSFVersionTests: XCTestCase {
 		XCTAssertThrowsError(try DSFVersion("1."))
 		XCTAssertThrowsError(try DSFVersion(".2.3.4"))
 		XCTAssertThrowsError(try DSFVersion("1.2.a.4"))
+
+		// With whitespace at start and end
+		let t1 = XCTAssertNoThrowWithReturn(try DSFVersion("1.2 "))
+		XCTAssertEqual(DSFVersion(1, 2), t1)
+		let t2 = XCTAssertNoThrowWithReturn(try DSFVersion("     1.2"))
+		XCTAssertEqual(DSFVersion(1, 2), t2)
+		let t3 = XCTAssertNoThrowWithReturn(try DSFVersion("     1.2    "))
+		XCTAssertEqual(DSFVersion(1, 2), t3)
 	}
 
 	func testEquality() throws {
@@ -248,6 +272,15 @@ final class DSFVersionTests: XCTestCase {
 
 		let v3rec = try JSONDecoder().decode(TestValue.self, from: data3)
 		XCTAssertEqual(v3, v3rec)
+
+		// Make sure that if a json has invalid version it throws an error as expected
+		let invalidData1 = #"{"version":"3.A.*","name":"counter","value":3}"#.data(using: .utf8)!
+		XCTAssertThrowsError(try JSONDecoder().decode(TestValue.self, from: invalidData1))
+		let invalidData2 = #"{"version":"1.23.4.5.6","name":"counter","value":3}"#.data(using: .utf8)!
+		XCTAssertThrowsError(try JSONDecoder().decode(TestValue.self, from: invalidData2))
+		let invalidData3 = #"{"version":"3.A.*","name":"counter","value":3}"#.data(using: .utf8)!
+		XCTAssertThrowsError(try JSONDecoder().decode(TestValue.self, from: invalidData3))
+
 	}
 
 	func testDocoExample() throws {
@@ -269,38 +302,40 @@ final class DSFVersionTests: XCTestCase {
 	}
 
 	func testIncrementer() throws {
-		// Check that wildcard increment fails as expected
-		XCTAssertNil(DSFVersion(10, 4, 3, -1).increment(.minor))
+		performTest {
+			// Check that wildcard increment fails as expected
+			XCTAssertThrowsError(try DSFVersion(10, 4, 3, -1).increment(.minor))
 
-		// Increment with zeroing
-		let v1 = try XCTUnwrap(DSFVersion(10, 4, 3, 1000).increment(.minor))
-		XCTAssertEqual(v1, DSFVersion(10, 5))
+			// Increment with zeroing
+			let v1 = XCTAssertNoThrowWithReturn(try DSFVersion(10, 4, 3, 1000).increment(.minor))
+			XCTAssertEqual(v1, DSFVersion(10, 5))
 
-		// Increment without zeroing
-		let v2 = try XCTUnwrap(DSFVersion(10, 4, 3, 1000).increment(.minor, zeroLower: false))
-		XCTAssertEqual(v2, DSFVersion(10, 5, 3, 1000))
+			// Increment without zeroing
+			let v2 = try XCTUnwrap(DSFVersion(10, 4, 3, 1000).increment(.minor, zeroLower: false))
+			XCTAssertEqual(v2, DSFVersion(10, 5, 3, 1000))
 
-		// Start with v1.2
-		let vv12 = DSFVersion(1, 2)
+			// Start with v1.2
+			let vv12 = DSFVersion(1, 2)
 
-		// Move to v1.2.0.1
-		let vv1201 = vv12.increment(.build)
-		XCTAssertEqual(vv1201, DSFVersion(1, 2, 0, 1))
+			// Move to v1.2.0.1
+			let vv1201 = try XCTUnwrap(try? vv12.increment(.build))
+			XCTAssertEqual(vv1201, DSFVersion(1, 2, 0, 1))
 
-		// Move from v1.2.0.1 -> v1.2.1
-		let vv121 = vv1201!.increment(.patch)
-		XCTAssertEqual(vv121, DSFVersion(1, 2, 1))
-		XCTAssertEqual("1.2.1", vv121!.stringValue)
+			// Move from v1.2.0.1 -> v1.2.1
+			let vv121 = try XCTUnwrap(try? vv1201.increment(.patch))
+			XCTAssertEqual(vv121, DSFVersion(1, 2, 1))
+			XCTAssertEqual("1.2.1", vv121.stringValue)
 
-		// Move from v1.2.1 -> v1.3
-		let vv13 = vv121!.increment(.minor)
-		XCTAssertEqual(vv13, DSFVersion(1, 3))
+			// Move from v1.2.1 -> v1.3
+			let vv13 = try XCTUnwrap(try? vv121.increment(.minor))
+			XCTAssertEqual(vv13, DSFVersion(1, 3))
 
-		// Move from v1.3 -> v2.0
-		let vv2 = vv13!.increment(.major)
-		XCTAssertEqual(vv2, DSFVersion(2))
+			// Move from v1.3 -> v2.0
+			let vv2 = try XCTUnwrap(try? vv13.increment(.major))
+			XCTAssertEqual(vv2, DSFVersion(2))
 
-		XCTAssertEqual("2", vv2!.stringValue)
+			XCTAssertEqual("2", vv2.stringValue)
+		}
 	}
 
 	static var allTests = [

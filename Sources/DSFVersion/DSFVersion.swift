@@ -26,6 +26,8 @@ public struct DSFVersion: CustomDebugStringConvertible {
 	public enum VersionError: Error {
 		/// Tried to parse a version from a string and it was incompatible.
 		case InvalidVersionString
+		/// Attempted to increment a version object but the version was wildcarded (eg. 6.5.*)
+		case CannotIncrementWildcard
 	}
 
 	/// An enum identifying the fields within the version
@@ -37,7 +39,7 @@ public struct DSFVersion: CustomDebugStringConvertible {
 	}
 
 	/// Helper constant for wildcard support
-	public static let Wildcard: Int32 = -1
+	public static let Wildcard: Int = -1
 
 	// Regular Expression definition
 	private static let RegexpString = #"^(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)$"#
@@ -46,20 +48,20 @@ public struct DSFVersion: CustomDebugStringConvertible {
 	private let fields: [FieldValue]
 
 	/// Major field in the version (major.-.-.-)
-	public var major: FieldValue { return fields[0] }
+	public var major: FieldValue { return self.fields[0] }
 	/// Minor field in the version (-.minor.-.-)
-	public var minor: FieldValue { return fields[1] }
+	public var minor: FieldValue { return self.fields[1] }
 	/// Patch field in the version (-.-.patch.-)
-	public var patch: FieldValue { return fields[2] }
+	public var patch: FieldValue { return self.fields[2] }
 	/// Build field in the version (-.-.-.build)
-	public var build: FieldValue { return fields[3] }
+	public var build: FieldValue { return self.fields[3] }
 
 	/// Does the version contain a wildcard (for example, 10.4.* == true, 10.4.3 == false)
 	public var hasWildcard: Bool {
 		return self.major.isWildcard
-			|| self.minor.isWildcard
-			|| self.patch.isWildcard
-			|| self.build.isWildcard
+		|| self.minor.isWildcard
+		|| self.patch.isWildcard
+		|| self.build.isWildcard
 	}
 
 	/// Return a string representation of the version (eg. "10.5.*")
@@ -87,40 +89,57 @@ public struct DSFVersion: CustomDebugStringConvertible {
 	///   - minor: The minor version number. Use -1 for a wildcard, or nil for not specified
 	///   - patch: The patch version number. Use -1 for a wildcard, or nil for not specified
 	///   - build: The build version number. Use -1 for a wildcard, or nil for not specified
-	public init(_ major: Int32, _ minor: Int32? = nil, _ patch: Int32? = nil, _ build: Int32? = nil) {
+	public init(_ major: Int, _ minor: Int? = nil, _ patch: Int? = nil, _ build: Int? = nil) {
 		self.fields = [FieldValue(major), FieldValue(minor), FieldValue(patch), FieldValue(build)]
 	}
 
-	/// Try to create a DSFVersion object from the provided string.
+	/// Try to parse a DSFVersion object from the provided string.
 	/// - Parameter versionString: the string to parse
-	/// - Returns: A new version object if a version can be parsed from 'versionString', nil otherwise
-	public static func TryParse(_ versionString: String) -> DSFVersion? {
-		return try? DSFVersion(versionString)
+	/// - Returns: A new version object from the parsed version string
+	/// - Throws: `VersionError.InvalidVersionString` if the version string cannot be parsed
+	@inlinable
+	public static func TryParse(_ versionString: String) throws -> DSFVersion {
+		return try DSFVersion(versionString)
 	}
 
 	/// Create a Version object from the provided string. Throws 'VersionError.InvalidVersionString
 	/// - Parameter versionString: the string to parse
 	/// - Throws: VersionError.InvalidVersionString if the string cannot be parsed
 	public init(_ versionString: String) throws {
-		let nsrange = NSRange(versionString.startIndex ..< versionString.endIndex, in: versionString)
+		// Trim off any whitespace at the start and end of the version string
+		let vstring = versionString.trimmingCharacters(in: .whitespaces)
 
-		guard let match = DSFVersion.Regex.firstMatch(in: versionString, options: [], range: nsrange) else {
+		// Grab the regex match. We're expecting the match to be EXACTLY the same size as the trimmed string
+		let nsrange = NSRange(vstring.startIndex ..< vstring.endIndex, in: vstring)
+
+		guard
+			let match = DSFVersion.Regex.firstMatch(in: vstring, options: [], range: nsrange),
+			match.range == nsrange
+		else {
 			throw VersionError.InvalidVersionString
 		}
 
-		var fields = [FieldValue]()
+		assert(match.range == nsrange)
+
+		var hasWildcard = false
+		var fields: [FieldValue] = []
 		try (1 ..< match.numberOfRanges).forEach { index in
 
-			guard let r = Range(match.range(at: index), in: versionString) else {
+			guard let r = Range(match.range(at: index), in: vstring) else {
 				return
 			}
 
-			let s = String(versionString[r])
+			let s = String(vstring[r])
 			if s == "*" {
+				if hasWildcard {
+					// Multiple wildcards encountered
+					throw VersionError.InvalidVersionString
+				}
 				fields.append(FieldValue.Wildcard)
+				hasWildcard = true
 			}
 			else {
-				guard let value = Int32(s) else {
+				guard let value = Int(s) else {
 					// This is impossible to hit given the regex definition
 					throw VersionError.InvalidVersionString
 				}
@@ -128,8 +147,9 @@ public struct DSFVersion: CustomDebugStringConvertible {
 			}
 		}
 
+		// Pad to end with empty fields
 		(fields.count ..< 4).forEach { _ in
-			fields.append(FieldValue(nil))
+			fields.append(FieldValue.Unassigned)
 		}
 
 		self.fields = fields
@@ -142,16 +162,18 @@ public extension DSFVersion {
 	/// A struct representing the component value of a version field
 	struct FieldValue: CustomDebugStringConvertible {
 		/// A static wildcard representation
-		static let Wildcard = FieldValue(-1)
+		public static let Wildcard = FieldValue(-1)
+		/// A static 'unassigned' (not specified) field value
+		public static let Unassigned = FieldValue(nil)
 
 		/// The integer value of the field.
-		public let value: Int32
+		public let value: Int
 		/// Was the value specified within the field (for example, "4.5" the major value is specified, the build is not)
 		public let isSpecified: Bool
 		/// Was the field value specified as a wildcard
 		public let isWildcard: Bool
 
-		init(_ value: Int32?) {
+		init(_ value: Int?) {
 			self.value = (value ?? 0)
 			self.isSpecified = (value != nil)
 			self.isWildcard = (value == -1)
@@ -160,7 +182,7 @@ public extension DSFVersion {
 		}
 
 		public var debugDescription: String {
-			guard isSpecified else { return "" }
+			guard self.isSpecified else { return "" }
 			return (self.isWildcard ? "*" : "\(self.value)")
 		}
 	}
@@ -305,10 +327,11 @@ public extension DSFVersion {
 	/// - Parameters:
 	///   - field: The field to increment
 	///   - zeroLower: if true, zeroes all lesser significant fields  (eg. 10.4.3.1000 --> 10.5.0.0)
-	/// - Returns: A new DSFVersion object, or nil if the original version has a wildcard
-	func increment(_ field: Field, zeroLower: Bool = true) -> DSFVersion? {
+	/// - Returns: A new DSFVersion object.
+	/// - Throws: `CannotIncrementWildcard` if the version object contains a wildcard (eg. 10.4.3.*)*
+	func increment(_ field: Field, zeroLower: Bool = true) throws -> DSFVersion {
 		if self.hasWildcard {
-			return nil
+			throw VersionError.CannotIncrementWildcard
 		}
 		switch field {
 		case .major:
