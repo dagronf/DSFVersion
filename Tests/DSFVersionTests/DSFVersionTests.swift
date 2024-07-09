@@ -31,14 +31,14 @@ final class VersionTests: XCTestCase {
 			XCTAssertFalse(v1.build.isAssigned)
 			XCTAssertEqual(v1.major.intValue, 1)
 
-			let v2 = Version(Version.Wildcard)
+			let v2 = Version(.wildcard)
 			XCTAssertTrue(v2.major == .wildcard)
 			XCTAssertTrue(v2.major.isAssigned)
 			XCTAssertFalse(v2.minor.isAssigned)
 			XCTAssertFalse(v2.patch.isAssigned)
 			XCTAssertFalse(v2.build.isAssigned)
 
-			let v3 = Version(15, Version.Wildcard)
+			let v3 = Version(15, .wildcard)
 			XCTAssertFalse(v3.major == .wildcard)
 			XCTAssertTrue(v3.major.isAssigned)
 			XCTAssertEqual(v3.major.intValue, 15)
@@ -142,23 +142,23 @@ final class VersionTests: XCTestCase {
 		// SUCCESS: 4.4.5 is contained within the range 4.*
 		XCTAssertEqual(v2, try Version("4.*"))
 
-		let v445 = Version(4, 4, 5, -1) // 4.4.5.*
+		let v445 = Version(4, 4, 5, .wildcard) // 4.4.5.*
 		XCTAssertTrue(Version(4, 4, 5) >= v445) // 4.4.5 is contained within v445
 		XCTAssertTrue(Version(4, 4, 5, 0) >= v445) // 4.4.5.0 is contained within v445
 		XCTAssertTrue(Version(4, 4, 5, 999) >= v445) // 4.4.5.999 is contained within v445
 
-		XCTAssertTrue(Version(4, 4, -1).contains(Version(4, 4, 5, 999))) // 4.4.* contains 4.4.5.999
+		XCTAssertTrue(Version(4, 4, .wildcard).contains(Version(4, 4, 5, 999))) // 4.4.* contains 4.4.5.999
 
-		XCTAssertFalse(Version(4, 4, -1).contains(Version(4, 5, 5, 999))) // 4.4.* does not contain 4.5.5.999
-		XCTAssertFalse(Version(4, 4, -1).contains(Version(4, 3, 5, 999))) // 4.4.* does not contain 4.3.5.999
+		XCTAssertFalse(Version(4, 4, .wildcard).contains(Version(4, 5, 5, 999))) // 4.4.* does not contain 4.5.5.999
+		XCTAssertFalse(Version(4, 4, .wildcard).contains(Version(4, 3, 5, 999))) // 4.4.* does not contain 4.3.5.999
 
-		XCTAssertTrue(Version(4, 5, 5, 999) >= Version(4, 4, -1))
+		XCTAssertTrue(Version(4, 5, 5, 999) >= Version(4, 4, .wildcard))
 
 		// Cannot check with a wildcard on the left hand side
-		XCTAssertFalse(Version(14, 5, 0, -1) > Version(14, 5, 0, 1000))
-		XCTAssertFalse(Version(14, 5, 0, -1) < Version(14, 5, 0, 1000))
+		XCTAssertFalse(Version(14, 5, 0, .wildcard) > Version(14, 5, 0, 1000))
+		XCTAssertFalse(Version(14, 5, 0, .wildcard) < Version(14, 5, 0, 1000))
 
-		XCTAssertGreaterThan(Version(14, 5, 0), Version(14, 5, -1)) // 14.5.0 > 14.5.*
+		XCTAssertGreaterThan(Version(14, 5, 0), Version(14, 5, .wildcard)) // 14.5.0 > 14.5.*
 	}
 
 	func testClosedRangeThrough() throws {
@@ -244,7 +244,7 @@ final class VersionTests: XCTestCase {
 
 		///
 
-		let v2 = Version(55, Version.Wildcard)
+		let v2 = Version(55, .wildcard)
 		let data2 = try JSONEncoder().encode(v2)
 		let v2rec = try JSONDecoder().decode(Version.self, from: data2)
 		XCTAssertEqual(v2, v2rec)
@@ -265,7 +265,7 @@ final class VersionTests: XCTestCase {
 			}
 		}
 
-		let v3 = TestValue(version: Version(3, 6, -1), name: "counter", value: 3)
+		let v3 = TestValue(version: Version(3, 6, .wildcard), name: "counter", value: 3)
 		let data3 = try JSONEncoder().encode(v3)
 
 		let str3 = String(data: data3, encoding: .utf8)
@@ -309,7 +309,7 @@ final class VersionTests: XCTestCase {
 	func testIncrementer() throws {
 		performTest {
 			// Check that wildcard increment fails as expected
-			XCTAssertThrowsError(try Version(10, 4, 3, -1).incrementing(.minor))
+			XCTAssertThrowsError(try Version(10, 4, 3, .wildcard).incrementing(.minor))
 
 			// Increment with zeroing
 			let v1 = try Version(10, 4, 3, 1000).incrementing(.minor)
@@ -349,7 +349,7 @@ final class VersionTests: XCTestCase {
 	}
 
 	func testValidateSanitize() throws {
-		XCTAssertEqual(Version(5, Version.Wildcard, 3, 4), Version(5))
-		XCTAssertEqual(Version(5, 6, Version.Wildcard, 4), Version(5, 6, Version.Wildcard))
+		XCTAssertEqual(Version(5, .wildcard, 3, 4), Version(5))
+		XCTAssertEqual(Version(5, 6, .wildcard, 4), Version(5, 6, .wildcard))
 	}
 }

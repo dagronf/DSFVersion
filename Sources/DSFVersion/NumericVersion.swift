@@ -21,17 +21,29 @@
 
 import Foundation
 
+public extension Int {
+	/// A version wildcard value
+	static var wildcard: Int { -1 }
+}
+
 /// A simple version class supporting major, (optional) minor, (optional) patch and (optional) build integer values.
 public struct Version: CustomDebugStringConvertible {
-	/// Helper constant for wildcard support
-	public static let Wildcard: Int = -1
-
 	/// Errors thrown during parsing
 	public enum VersionError: Error {
 		/// Tried to parse a version from a string and it was incompatible.
 		case InvalidVersionString
 		/// Attempted to increment a version object but the version was wildcarded (eg. 6.5.*)
 		case CannotIncrementWildcard
+	}
+
+	/// A version field value`
+	public enum FieldValue: Equatable, CustomDebugStringConvertible {
+		/// A numerical value
+		case value(Int)
+		/// A wildcard value
+		case wildcard
+		/// The field is unassigned
+		case unassigned
 	}
 
 	/// An enum publicly identifying the fields within the version
@@ -89,33 +101,12 @@ public struct Version: CustomDebugStringConvertible {
 
 	/// Create a new version object
 	/// - Parameters:
-	///   - major: The major version number (cannot be `.unassigned`)
-	///   - minor: The minor version number
-	///   - patch: The patch version number
-	///   - build: The build version number
-	///
-	/// The `major` field _must_ be specified as either a numerical value or a wildcard
-	public init(
-		_ major: FieldValue,
-		_ minor: FieldValue = .unassigned,
-		_ patch: FieldValue = .unassigned,
-		_ build: FieldValue = .unassigned
-	) {
-		assert(major.isValue || major.isWildcard)
-		self.major = major
-		self.minor = self.major.isValue == false ? .unassigned : minor
-		self.patch = self.minor.isValue == false ? .unassigned : patch
-		self.build = self.patch.isValue == false ? .unassigned : build
-	}
-
-	/// Create a new version object
-	/// - Parameters:
 	///   - major: The major version number.
 	///
 	///   Notes:
-	///     * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	///     * Use `Int.wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
 	public init(_ major: Int) {
-		self.init(FieldValue.map(major), .unassigned, .unassigned, .unassigned)
+		self.init(major: FieldValue.map(major))
 	}
 
 	/// Create a new version object
@@ -124,9 +115,14 @@ public struct Version: CustomDebugStringConvertible {
 	///   - minor: The minor version number.
 	///
 	/// Notes:
-	///   * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	///   * Use `Int.wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
 	public init(_ major: Int, _ minor: Int) {
-		self.init(FieldValue.map(major), FieldValue.map(minor), .unassigned, .unassigned)
+		self.init(
+			major: FieldValue.map(major),
+			minor: FieldValue.map(minor),
+			patch: .unassigned,
+			build: .unassigned
+		)
 	}
 
 	/// Create a new version object
@@ -136,9 +132,14 @@ public struct Version: CustomDebugStringConvertible {
 	///   - patch: The patch version number.
 	///
 	/// Notes:
-	///   * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	///   * Use `Int.wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
 	public init(_ major: Int, _ minor: Int, _ patch: Int) {
-		self.init(FieldValue.map(major), FieldValue.map(minor), FieldValue.map(patch), .unassigned)
+		self.init(
+			major: FieldValue.map(major),
+			minor: FieldValue.map(minor),
+			patch: FieldValue.map(patch),
+			build: .unassigned
+		)
 	}
 
 	/// Create a new version object
@@ -149,9 +150,14 @@ public struct Version: CustomDebugStringConvertible {
 	///   - build: The build version number.
 	///
 	/// Notes:
-	///   * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	///   * Use `Int.wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
 	public init(_ major: Int, _ minor: Int, _ patch: Int, _ build: Int) {
-		self.init(FieldValue.map(major), FieldValue.map(minor), FieldValue.map(patch), FieldValue.map(build))
+		self.init(
+			major: FieldValue.map(major),
+			minor: FieldValue.map(minor),
+			patch: FieldValue.map(patch),
+			build: FieldValue.map(build)
+		)
 	}
 
 	/// Create a Version object from a string representation
@@ -163,58 +169,66 @@ public struct Version: CustomDebugStringConvertible {
 	}
 }
 
+internal extension Version {
+	/// Create a new version object
+	/// - Parameters:
+	///   - major: The major version number (cannot be `.unassigned`)
+	///   - minor: The minor version number
+	///   - patch: The patch version number
+	///   - build: The build version number
+	init(
+		major: FieldValue,
+		minor: FieldValue = .unassigned,
+		patch: FieldValue = .unassigned,
+		build: FieldValue = .unassigned
+	) {
+		assert(major.isValue || major.isWildcard)
+		self.major = major
+		self.minor = self.major.isValue == false ? .unassigned : minor
+		self.patch = self.minor.isValue == false ? .unassigned : patch
+		self.build = self.patch.isValue == false ? .unassigned : build
+	}
+
+}
+
 // MARK: - Field Value
 
-public extension Version {
-	/// A version field value`
-	enum FieldValue: Equatable, CustomDebugStringConvertible {
-		/// A numerical value
-		case value(Int)
-		/// A wildcard value
-		case wildcard
-		/// The field is unassigned
-		case unassigned
-
-		/// String representation of the field
-		public var stringValue: String {
-			switch self {
-			case .unassigned: return ""
-			case .wildcard: return "*"
-			case let .value(value): return "\(value)"
-			}
+extension Version.FieldValue {
+	/// String representation of the field
+	public var stringValue: String {
+		switch self {
+		case .unassigned: return ""
+		case .wildcard: return "*"
+		case let .value(value): return "\(value)"
 		}
-
-		/// String representation of the field
-		public var debugDescription: String { self.stringValue }
-
-		var intValue: Int {
-			switch self {
-			case .unassigned: return 0
-			case .wildcard: return -1
-			case let .value(value): return value
-			}
-		}
-
-		/// Map from an integer value to a field value
-		static func map(_ v: Int?) -> FieldValue {
-			guard let v = v else { return .unassigned }
-			if v == Version.Wildcard { return .wildcard }
-			return .value(v)
-		}
-
-		/// Is this field unassigned?
-		@inlinable @inline(__always)
-		public var isUnassigned: Bool { self == .unassigned }
-		/// Has the field got an assigned value (value or wildcard)
-		@inlinable @inline(__always)
-		public var isAssigned: Bool { self != .unassigned }
-		/// Is this field a wildcard?
-		@inlinable @inline(__always)
-		public var isWildcard: Bool { self == .wildcard }
-		/// Does this field contain a value
-		@inlinable @inline(__always)
-		public var isValue: Bool { self.isWildcard == false && self.isUnassigned == false }
 	}
+
+	/// String representation of the field
+	public var debugDescription: String { self.stringValue }
+
+	var intValue: Int {
+		switch self {
+		case .unassigned: return 0
+		case .wildcard: return -1
+		case let .value(value): return value
+		}
+	}
+
+	/// Map from an integer value to a field value
+	static func map(_ v: Int?) -> Version.FieldValue {
+		guard let v = v else { return .unassigned }
+		if v == Int.wildcard { return .wildcard }
+		return .value(v)
+	}
+
+	/// Is this field unassigned?
+	@inlinable @inline(__always) public var isUnassigned: Bool { self == .unassigned }
+	/// Has the field got an assigned value (value or wildcard)?
+	@inlinable @inline(__always) public var isAssigned: Bool { self != .unassigned }
+	/// Is this field a wildcard?
+	@inlinable @inline(__always) public var isWildcard: Bool { self == .wildcard }
+	/// Does this field contain a value?
+	@inlinable @inline(__always) public var isValue: Bool { self != .wildcard && self != .unassigned }
 }
 
 public extension Version {
@@ -270,7 +284,7 @@ public extension Version {
 			fields.append(.unassigned)
 		}
 
-		return Version(fields[0], fields[1], fields[2], fields[3])
+		return Version(major: fields[0], minor: fields[1], patch: fields[2], build: fields[3])
 	}
 }
 
@@ -421,31 +435,31 @@ public extension Version {
 		switch field {
 		case .major:
 			return Version(
-				.value(self.major.intValue + 1),
-				zeroLower ? .unassigned : .value(self.minor.intValue),
-				zeroLower ? .unassigned : .value(self.patch.intValue),
-				zeroLower ? .unassigned : .value(self.build.intValue)
+				major: .value(self.major.intValue + 1),
+				minor: zeroLower ? .unassigned : .value(self.minor.intValue),
+				patch: zeroLower ? .unassigned : .value(self.patch.intValue),
+				build: zeroLower ? .unassigned : .value(self.build.intValue)
 			)
 		case .minor:
 			return Version(
-				.value(self.major.intValue),
-				.value(self.minor.intValue + 1),
-				zeroLower ? .unassigned : .value(self.patch.intValue),
-				zeroLower ? .unassigned : .value(self.build.intValue)
+				major: .value(self.major.intValue),
+				minor: .value(self.minor.intValue + 1),
+				patch: zeroLower ? .unassigned : .value(self.patch.intValue),
+				build: zeroLower ? .unassigned : .value(self.build.intValue)
 			)
 		case .patch:
 			return Version(
-				.value(self.major.intValue),
-				.value(self.minor.intValue),
-				.value(self.patch.intValue + 1),
-				zeroLower ? .unassigned : .value(self.build.intValue)
+				major: .value(self.major.intValue),
+				minor: .value(self.minor.intValue),
+				patch: .value(self.patch.intValue + 1),
+				build: zeroLower ? .unassigned : .value(self.build.intValue)
 			)
 		case .build:
 			return Version(
-				.value(self.major.intValue),
-				.value(self.minor.intValue),
-				.value(self.patch.intValue),
-				.value(self.build.intValue + 1)
+				major: .value(self.major.intValue),
+				minor: .value(self.minor.intValue),
+				patch: .value(self.patch.intValue),
+				build: .value(self.build.intValue + 1)
 			)
 		}
 	}

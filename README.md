@@ -64,20 +64,20 @@ Version(10,4) ⟺ Version(10,4,0) ⟺ Version(10,4,0,0)
 Version("5.6.3") ⟺ Version(5,6,3,0)
 ```
 
-### A field that is -1 is defined as a wildcard (*)
+### A field that is -1 (`Int.wildcard`) is defined as a wildcard (*)
 
 A wildcard will match against its position and any lesser significant positions
 
 ```swift
-Version("14.7.*") ⟺ Version(14,7,-1)                   // "14.7.*" is the same as 14.7.-1
+Version("14.7.*") ⟺ Version(14, 7, .wildcard)                   // "14.7.*" is the same as 14,7,-1
 
-Version(1, -1).contains(Version(1, 1, 101))             // 1.* contains 1.1.101
-Version(6, 0, 0, -1).contains(Version(6, 0, 0, 101))    // 6.0.0.* contains 6.0.0.101
+Version(1, .wildcard).contains(Version(1, 1, 101))             // 1.* contains 1.1.101
+Version(6, 0, 0, .wildcard).contains(Version(6, 0, 0, 101))    // 6.0.0.* contains 6.0.0.101
 ```
 ### Once a wildcard is found, any lesser significant places are ignored.
 
 ```swift
-Version(1, -1, 1, 101) ⟺ Version(1, -1)                // 1.*.1.101 is equivalent to 1.*
+Version(1, .wildcard, 1, 101) ⟺ Version(1, .wildcard)                // 1.*.1.101 is equivalent to 1.*
 ```
 ## Creation
 
@@ -94,9 +94,11 @@ assert(v4.patch.value == 4)
 ```
 ### Wildcards
 
+A wildcard value is specified as a -1 (or `Int.wildcard`) during construction
+
 ```swift
-let w1 = Version(1, -1)           // 1.*
-let w2 = Version(1, 15, 9, -1)    // 1.15.9.*
+let w1 = Version(1, .wildcard)           // 1.*
+let w2 = Version(1, 15, 9, .wildcard)    // 1.15.9.*
 ```
 
 ### Parsing from a string
@@ -124,9 +126,9 @@ try Version("12.4.0") == Version(12,4)
 A wildcard matches any value from the wildcard position onward
 
 ```swift
-Version(4,-1) == Version(4,5,6)    // 4.* == 4.5.6
-Version(4,5,6) == Version(4,-1)    // 4.5.6 == 4.*
-Version(4,5,6) == Version(4,5,-1)  // 4.5.6 == 4.5.*
+Version(4,.wildcard) == Version(4,5,6)    // 4.* == 4.5.6
+Version(4,5,6) == Version(4,.wildcard)    // 4.5.6 == 4.*
+Version(4,5,6) == Version(4,5,.wildcard)  // 4.5.6 == 4.5.*
 ```
 
 ## Comparison
@@ -142,10 +144,10 @@ assert(v1 >= v0)             // v1 is a later version number
 
 // Wildcard comparison
 
-let v3 = Version(10, 4, *)
+let v3 = Version(10, 4, .wildcard)
 v3.contains(v0)              // 10.4.* contains the value 10.4
 
-let v4 = Version(10, 5, *)
+let v4 = Version(10, 5, .wildcard)
 !v4.contains(v0)              // 10.5.* DOES NOT contain the value 10.4
 ```
 ## Ranges
@@ -220,7 +222,7 @@ Version is fully codable, so you can use Version objects in your codable structs
 The coded value is the string version of the version (eg. `"15.3.*"`) so that it's easily and clearly interpreted within your coded text.
 
 ```swift
-let v1 = Version(55, -1)
+let v1 = Version(55, .wildcard)
 let data1 = try JSONEncoder().encode(v1)
 // Data contains "55.*"
 
