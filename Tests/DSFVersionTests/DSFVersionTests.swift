@@ -25,26 +25,26 @@ final class VersionTests: XCTestCase {
 	func testSimple() throws {
 		performTest {
 			let v1 = Version(1)
-			XCTAssertTrue(v1.major.isSpecified)
-			XCTAssertFalse(v1.minor.isSpecified)
-			XCTAssertFalse(v1.patch.isSpecified)
-			XCTAssertFalse(v1.build.isSpecified)
+			XCTAssertTrue(v1.major.isAssigned)
+			XCTAssertFalse(v1.minor.isAssigned)
+			XCTAssertFalse(v1.patch.isAssigned)
+			XCTAssertFalse(v1.build.isAssigned)
 			XCTAssertEqual(v1.major.intValue, 1)
 
 			let v2 = Version(Version.Wildcard)
 			XCTAssertTrue(v2.major == .wildcard)
-			XCTAssertTrue(v2.major.isSpecified)
-			XCTAssertFalse(v2.minor.isSpecified)
-			XCTAssertFalse(v2.patch.isSpecified)
-			XCTAssertFalse(v2.build.isSpecified)
+			XCTAssertTrue(v2.major.isAssigned)
+			XCTAssertFalse(v2.minor.isAssigned)
+			XCTAssertFalse(v2.patch.isAssigned)
+			XCTAssertFalse(v2.build.isAssigned)
 
 			let v3 = Version(15, Version.Wildcard)
 			XCTAssertFalse(v3.major == .wildcard)
-			XCTAssertTrue(v3.major.isSpecified)
+			XCTAssertTrue(v3.major.isAssigned)
 			XCTAssertEqual(v3.major.intValue, 15)
 
 			XCTAssertTrue(v3.minor == .wildcard)
-			XCTAssertTrue(v3.minor.isSpecified)
+			XCTAssertTrue(v3.minor.isAssigned)
 
 			let v4 = try Version("15.3.4")
 			XCTAssertEqual(Version(15, 3, 4), v4)
@@ -340,15 +340,16 @@ final class VersionTests: XCTestCase {
 			XCTAssertEqual(vv2, Version(2))
 
 			XCTAssertEqual("2", vv2.stringValue)
+
+			// Increment a field that was not initially specified
+			XCTAssertEqual(Version(2, 0, 1), try Version(2).incrementing(.patch))
+			XCTAssertEqual(Version(2, 4, 0, 1), try Version(2, 4).incrementing(.build))
+
 		}
 	}
 
 	func testValidateSanitize() throws {
-		// unassigned checks
-		XCTAssertEqual(Version(5, nil, nil, 4), Version(5))
-		XCTAssertEqual(Version(5, 6, nil, 4), Version(5, 6))
-
-		XCTAssertEqual(Version(5, Version.Wildcard, nil, 4), Version(5))
+		XCTAssertEqual(Version(5, Version.Wildcard, 3, 4), Version(5))
 		XCTAssertEqual(Version(5, 6, Version.Wildcard, 4), Version(5, 6, Version.Wildcard))
 	}
 }

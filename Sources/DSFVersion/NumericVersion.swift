@@ -1,7 +1,7 @@
 //
-//  DSFVersion.swift
+//  NumericVersion.swift
 //
-//  Created by Darren Ford on 2/9/2020.
+//  Copyright © 2024 Darren Ford. All rights reserved.
 //
 //  MIT license
 //
@@ -17,6 +17,7 @@
 //  WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
 //  OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 //  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
 
 import Foundation
 
@@ -46,17 +47,21 @@ public struct Version: CustomDebugStringConvertible {
 	}
 
 	// Regular Expression definition
-	private static let RegexpString = #"^(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)$"#
-	private static let Regex = try! NSRegularExpression(pattern: RegexpString, options: [])
+	private static let NumericVersioningRegexpString = #"^(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)$"#
+	private static let NumericVersioningRegex = try! NSRegularExpression(pattern: NumericVersioningRegexpString, options: [])
+
+	// See: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+	private static let SemanticVersioningRegexp = #"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"#
+	private static let SemanticVersioningRegex = try! NSRegularExpression(pattern: SemanticVersioningRegexp, options: [])
 
 	/// Major field in the version (major.-.-.-)
-	public private(set) var major: FieldValue
+	public let major: FieldValue
 	/// Minor field in the version (-.minor.-.-)
-	public private(set) var minor: FieldValue
+	public let minor: FieldValue
 	/// Patch field in the version (-.-.patch.-)
-	public private(set) var patch: FieldValue
+	public let patch: FieldValue
 	/// Build field in the version (-.-.-.build)
-	public private(set) var build: FieldValue
+	public let build: FieldValue
 
 	/// Does the version contain a wildcard (for example, 10.4.* == true, 10.4.3 == false)
 	@inlinable public var hasWildcard: Bool {
@@ -84,22 +89,56 @@ public struct Version: CustomDebugStringConvertible {
 
 	/// Create a new version object
 	/// - Parameters:
-	///   - major: The major version number
+	///   - major: The major version number (cannot be `.unassigned`)
 	///   - minor: The minor version number
 	///   - patch: The patch version number
 	///   - build: The build version number
+	///
+	/// The `major` field _must_ be specified as either a numerical value or a wildcard
 	public init(
 		_ major: FieldValue,
 		_ minor: FieldValue = .unassigned,
 		_ patch: FieldValue = .unassigned,
 		_ build: FieldValue = .unassigned
 	) {
+		assert(major.isValue || major.isWildcard)
 		self.major = major
-		self.minor = minor
-		self.patch = patch
-		self.build = build
+		self.minor = self.major.isValue == false ? .unassigned : minor
+		self.patch = self.minor.isValue == false ? .unassigned : patch
+		self.build = self.patch.isValue == false ? .unassigned : build
+	}
 
-		self.sanitize()
+	/// Create a new version object
+	/// - Parameters:
+	///   - major: The major version number.
+	///
+	///   Notes:
+	///     * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	public init(_ major: Int) {
+		self.init(FieldValue.map(major), .unassigned, .unassigned, .unassigned)
+	}
+
+	/// Create a new version object
+	/// - Parameters:
+	///   - major: The major version number.
+	///   - minor: The minor version number.
+	///
+	/// Notes:
+	///   * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	public init(_ major: Int, _ minor: Int) {
+		self.init(FieldValue.map(major), FieldValue.map(minor), .unassigned, .unassigned)
+	}
+
+	/// Create a new version object
+	/// - Parameters:
+	///   - major: The major version number.
+	///   - minor: The minor version number.
+	///   - patch: The patch version number.
+	///
+	/// Notes:
+	///   * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	public init(_ major: Int, _ minor: Int, _ patch: Int) {
+		self.init(FieldValue.map(major), FieldValue.map(minor), FieldValue.map(patch), .unassigned)
 	}
 
 	/// Create a new version object
@@ -109,10 +148,9 @@ public struct Version: CustomDebugStringConvertible {
 	///   - patch: The patch version number.
 	///   - build: The build version number.
 	///
-	///   Notes:
-	///     * Use `Version.Wildcard` for a wildcard value (\*)
-	///     * Use `nil` for a unassigned field (default)
-	public init(_ major: Int? = nil, _ minor: Int? = nil, _ patch: Int? = nil, _ build: Int? = nil) {
+	/// Notes:
+	///   * Use `Version.Wildcard` for a wildcard value (\*). All values following a wildcard will be ignored
+	public init(_ major: Int, _ minor: Int, _ patch: Int, _ build: Int) {
 		self.init(FieldValue.map(major), FieldValue.map(minor), FieldValue.map(patch), FieldValue.map(build))
 	}
 
@@ -125,29 +163,12 @@ public struct Version: CustomDebugStringConvertible {
 	}
 }
 
-private extension Version {
-	mutating func sanitize() {
-		if self.major.isWildcard {
-			self.minor = .unassigned
-			self.patch = .unassigned
-			self.build = .unassigned
-		}
-		else if self.minor.isWildcard || self.minor.isUnassigned {
-			self.patch = .unassigned
-			self.build = .unassigned
-		}
-		else if self.patch.isWildcard || self.patch.isUnassigned {
-			self.build = .unassigned
-		}
-	}
-}
-
 // MARK: - Field Value
 
 public extension Version {
 	/// A version field value`
 	enum FieldValue: Equatable, CustomDebugStringConvertible {
-		/// A field value
+		/// A numerical value
 		case value(Int)
 		/// A wildcard value
 		case wildcard
@@ -159,7 +180,7 @@ public extension Version {
 			switch self {
 			case .unassigned: return ""
 			case .wildcard: return "*"
-			case .value(let value): return "\(value)"
+			case let .value(value): return "\(value)"
 			}
 		}
 
@@ -170,7 +191,7 @@ public extension Version {
 			switch self {
 			case .unassigned: return 0
 			case .wildcard: return -1
-			case .value(let value): return value
+			case let .value(value): return value
 			}
 		}
 
@@ -181,14 +202,18 @@ public extension Version {
 			return .value(v)
 		}
 
-		/// Does this field contain a value?
-		var isSpecified: Bool { self != .unassigned }
-
 		/// Is this field unassigned?
+		@inlinable @inline(__always)
 		public var isUnassigned: Bool { self == .unassigned }
-
+		/// Has the field got an assigned value (value or wildcard)
+		@inlinable @inline(__always)
+		public var isAssigned: Bool { self != .unassigned }
 		/// Is this field a wildcard?
+		@inlinable @inline(__always)
 		public var isWildcard: Bool { self == .wildcard }
+		/// Does this field contain a value
+		@inlinable @inline(__always)
+		public var isValue: Bool { self.isWildcard == false && self.isUnassigned == false }
 	}
 }
 
@@ -206,7 +231,7 @@ public extension Version {
 		let nsrange = NSRange(vstring.startIndex ..< vstring.endIndex, in: vstring)
 
 		guard
-			let match = Version.Regex.firstMatch(in: vstring, options: [], range: nsrange),
+			let match = Version.NumericVersioningRegex.firstMatch(in: vstring, options: [], range: nsrange),
 			match.range == nsrange
 		else {
 			throw VersionError.InvalidVersionString
@@ -341,17 +366,17 @@ extension Version: Equatable, Comparable {
 		// Cannot compare if a version being compared against contains a range
 		if version.hasWildcard == true { return false }
 
-		if self.major == .wildcard { return true }       //  v* == v4
-		if self.major != version.major { return false }  //  v4 != v5
+		if self.major == .wildcard { return true } //  v* == v4
+		if self.major != version.major { return false } //  v4 != v5
 
-		if self.minor == .wildcard { return true }       //  v2.* == v2.4
-		if self.minor != version.minor { return false }  //  v2.2 != v2.4
+		if self.minor == .wildcard { return true } //  v2.* == v2.4
+		if self.minor != version.minor { return false } //  v2.2 != v2.4
 
-		if self.patch == .wildcard { return true }       //  v2.4.* == v2.4.5
-		if self.patch != version.patch { return false }  //  v2.4.3 != v2.4.6
+		if self.patch == .wildcard { return true } //  v2.4.* == v2.4.5
+		if self.patch != version.patch { return false } //  v2.4.3 != v2.4.6
 
-		if self.build == .wildcard { return true }       //  v2.4.5.* == v2.4.5.111
-		if self.build != version.build { return false }  //  v2.4.5.201 != v2.4.5.111
+		if self.build == .wildcard { return true } //  v2.4.5.* == v2.4.5.111
+		if self.build != version.build { return false } //  v2.4.5.201 != v2.4.5.111
 
 		// A perfect match (ie. 1.2.3.4 == 1.2.3.4).  As such it contains it!
 		return true
