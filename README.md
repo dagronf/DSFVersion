@@ -18,10 +18,14 @@ I had the need to parse version strings from JSON and XML encoded files that met
 * Optional minor/patch/build fields
 * Extract a version from a string representation eg. `"5.6.*"`
 * The ability to use wildcards to support simple version checks
-* Version range checking (eg. v4.0 -> v5.0)
+* Version range checking
 * Swift Codable support
 
-This class uses the [Numeric status](https://en.wikipedia.org/wiki/Software_versioning) versioning scheme (`major.minor.patch.build`).  Note that you do not need to provide all fields! This class will work quite happily with just the major/minor combo if that's all you need within your project.
+This class uses the [Numeric status](https://en.wikipedia.org/wiki/Software_versioning) versioning 
+scheme (`major.minor.patch.build`).
+
+Note that you do not need to provide all fields! This class will work quite happily with just the major/minor combo 
+if that's all you need within your project.
 
 ## TL;DR: Simple example
 
@@ -40,9 +44,9 @@ assert(upperBound > testValue)
 let strVer = "10.4.5"
 let myVersion = try Version(strVer)   // Throws if strVer isn't a compatible version string
 
-assert(myVersion.major.value == 10)
-assert(myVersion.minor.value == 4)
-assert(myVersion.patch.value == 5)
+assert(myVersion.major.rawValue == 10)
+assert(myVersion.minor.rawValue == 4)
+assert(myVersion.patch.rawValue == 5)
 
 // Simple comparison to verify if 'myVersion' is greater than our lower bound
 assert(lowerBound < myVersion)
@@ -54,14 +58,15 @@ assert(range.contains(myVersion))
 
 ## Integration
 
-Use Swift Package Manager to add `https://github.com/dagronf/Version` to your project.
+Use Swift Package Manager to add `https://github.com/dagronf/DSFVersion` to your project.
 
 ## Rules
 
 ### A field that is not provided when constructed is assumed to be 0. 
+
 ```swift
 Version(10,4) ⟺ Version(10,4,0) ⟺ Version(10,4,0,0)
-Version("5.6.3") ⟺ Version(5,6,3,0)
+Version("5.6.3") ⟺ Version(5,6,3,0) ⟺ Version(5,6,3)
 ```
 
 ### A field that is assigned to `UInt.wildcard` is defined as a wildcard (*)
@@ -92,6 +97,7 @@ let v4 = Version(15, 3, 4, 10001)    // 15.3.4.10001
 assert(v4.major.value == 15)
 assert(v4.patch.value == 4)
 ```
+
 ### Wildcards
 
 A wildcard value is specified as `UInt.wildcard` during construction
@@ -105,13 +111,12 @@ let w2 = Version(1, 15, 9, .wildcard)    // 1.15.9.*
 
 ```swift
 // Version constructor throws if provided an incorrect version string
-let v1   = try Version("10.2.3.*")         // OK
-let v1-e = try Version("10..2.3.*")        // Throws VersionError.InvalidVersionString
-let v2-e = try Version("1.2.0-rc.3")       // Throws VersionError.InvalidVersionString
+let v1   = try Version("10.2.3.*")      // OK
+let v1_e = try Version("10..2.3.*")     // Throws VersionError.InvalidVersionString
+let v2_e = try Version("1.2.0-rc.3")    // Throws VersionError.InvalidVersionString
 
-// Static creator returns nil if provided an incorrect version string
-let v2   = Version.TryParse("15.4.3")      // OK
-let v2-e = Version.TryParse("15.a4.3")     // returns nil
+let v3   = try Version("15.4.3")        // OK
+let v3_e = try Version("15.a4.3")       // returns nil
 ```
 
 ## Equality
@@ -233,24 +238,12 @@ let v2rec = try JSONDecoder().decode(Version.self, from: data2)
 XCTAssertEqual(v2, v2rec)
 ```
 
-# Releases
-
-### `2.0.0` 
-
-* Now uses `Int` rather than `Int32` for field values
-* Changed `TryParse()` and `init(versionString)` to throwing rather than returning `nil`.
-* Parsing a string containing multiple wildcard values (eg. `10.*.*`) now throws an error.
-* Trim whitespace from version string before parsing (more forgiving during JSON/XML parsing)
-
 # License
-
-MIT. Use it for anything you want, just attribute my work. 
-Let me know if you do use it somewhere, I'd love to hear about it!
 
 ```
 MIT License
 
-Copyright (c) 2021 Darren Ford
+Copyright (c) 2024 Darren Ford
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -36,7 +36,7 @@ public struct Version: CustomDebugStringConvertible {
 		case CannotIncrementWildcard
 	}
 
-	/// A version field value`
+	/// A version field value
 	public enum FieldValue: Equatable, CustomDebugStringConvertible {
 		/// A numerical value
 		case value(UInt)
@@ -58,14 +58,6 @@ public struct Version: CustomDebugStringConvertible {
 		case build
 	}
 
-	// Regular Expression definition
-	private static let NumericVersioningRegexpString = #"^(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)$"#
-	private static let NumericVersioningRegex = try! NSRegularExpression(pattern: NumericVersioningRegexpString, options: [])
-
-	// See: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-	private static let SemanticVersioningRegexp = #"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"#
-	private static let SemanticVersioningRegex = try! NSRegularExpression(pattern: SemanticVersioningRegexp, options: [])
-
 	/// Major field in the version (major.-.-.-)
 	public let major: FieldValue
 	/// Minor field in the version (-.minor.-.-)
@@ -75,7 +67,12 @@ public struct Version: CustomDebugStringConvertible {
 	/// Build field in the version (-.-.-.build)
 	public let build: FieldValue
 
-	/// Does the version contain a wildcard (for example, 10.4.* == true, 10.4.3 == false)
+	/// Returns true if any of the fields contains a wildcard
+	///
+	/// Examples :-
+	///  * `10.4.* --> true`
+	///  * `4.* --> true`
+	///  * `10.4.3.2 --> false`
 	@inlinable public var hasWildcard: Bool {
 		self.major.isWildcard || self.minor.isWildcard || self.patch.isWildcard || self.build.isWildcard
 	}
@@ -167,6 +164,17 @@ public struct Version: CustomDebugStringConvertible {
 	public init(_ versionString: String) throws {
 		self = try Self.TryParse(versionString)
 	}
+
+	// private
+
+	// Regular Expression definition
+	//private static let _NumericVersioningRegexpString = #"^(?:(\d+))(?:\.(\d+))?(?:\.(\d+))?(?:\.(\*|\d+))?$"#
+	private static let NumericVersioningRegexpString =  #"^(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)$"#
+	private static let NumericVersioningRegex = try! NSRegularExpression(pattern: NumericVersioningRegexpString, options: [])
+
+	// See: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+	private static let SemanticVersioningRegexp = #"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"#
+	private static let SemanticVersioningRegex = try! NSRegularExpression(pattern: SemanticVersioningRegexp, options: [])
 }
 
 fileprivate extension Version {
@@ -202,7 +210,11 @@ public extension Version.FieldValue {
 		}
 	}
 
-	/// Return a UInt representing the field value
+	/// Return a UInt representing the field's numerical value
+	///
+	/// Notes:
+	///   * `unassigned` returns `0`
+	///   * `wildcard` return `UInt.wildcard` (`UInt.max`)
 	var rawValue: UInt {
 		switch self {
 		case .unassigned: return 0
@@ -231,7 +243,7 @@ internal extension Version.FieldValue {
 	}
 }
 
-public extension Version {
+fileprivate extension Version {
 	/// Try to parse a DSFVersion object from the provided string.
 	/// - Parameters:
 	///   - versionString: the string to parse
@@ -306,7 +318,7 @@ extension Version: Equatable, Comparable {
 	/// - Returns: Returns an ComparisonResult value that indicates the lexical ordering of a specified range within the two versions
 	///
 	/// The LHS value cannot contain wildcards, and will return `.error` if it contains one
-	public static func compare(lhs: Self, rhs: Self) -> Version.ComparisonResult {
+	public static func compare(lhs: Version, rhs: Version) -> Version.ComparisonResult {
 		// Left hand side cannot contain a wildcard range
 		if lhs.hasWildcard { return .error }
 
@@ -426,7 +438,7 @@ extension Version: Equatable, Comparable {
 // MARK: - Increment support
 
 public extension Version {
-	/// Return a new Version by Incrementing a field number, optionally zeroing all fields of lesser significance
+	/// Return a new Version object by incrementing a field, optionally zeroing all fields of lesser significance
 	/// - Parameters:
 	///   - field: The field to increment
 	///   - zeroLower: if true, zeroes all lesser significant fields  (eg. 10.4.3.1000 --> 10.5.0.0)

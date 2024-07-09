@@ -57,23 +57,23 @@ final class VersionTests: XCTestCase {
 			XCTAssertNotEqual(Version(15, 3), v4)
 			XCTAssertNotEqual(Version(15, 3, 4, 10001), v4)
 
-			let v5 = try XCTUnwrap(try? Version.TryParse("99.8.*"))
+			let v5 = try XCTUnwrap(try? Version("99.8.*"))
 			XCTAssertNotNil(v5)
 
 			// Make sure all field formats correct
-			XCTAssertNoThrow(try Version.TryParse("1.2.3.4"))
-			XCTAssertNoThrow(try Version.TryParse("1.2.3.*"))
-			XCTAssertNoThrow(try Version.TryParse("1.2.*"))
-			XCTAssertNoThrow(try Version.TryParse("1.*"))
-			XCTAssertNoThrow(try Version.TryParse("*"))                // Odd, but valid
-			XCTAssertThrowsError(try Version.TryParse("1.0.0.0.*"))    // too many fields
+			XCTAssertNoThrow(try Version("1.2.3.4"))
+			XCTAssertNoThrow(try Version("1.2.3.*"))
+			XCTAssertNoThrow(try Version("1.2.*"))
+			XCTAssertNoThrow(try Version("1.*"))
+			XCTAssertNoThrow(try Version("*"))                // Odd, but valid
+			XCTAssertThrowsError(try Version("1.0.0.0.*"))    // too many fields
 
 			// check for an invalid string
-			XCTAssertThrowsError(try Version.TryParse("99.8..*"))
-			XCTAssertThrowsError(try Version.TryParse("A.B.C.D"))
-			XCTAssertThrowsError(try Version.TryParse("1.2.3.D"))
-			XCTAssertThrowsError(try Version.TryParse("🐼.2.3"))       // non-digits character
-			XCTAssertThrowsError(try Version.TryParse("1.*.*"))        // multiple wildcards
+			XCTAssertThrowsError(try Version("99.8..*"))
+			XCTAssertThrowsError(try Version("A.B.C.D"))
+			XCTAssertThrowsError(try Version("1.2.3.D"))
+			XCTAssertThrowsError(try Version("🐼.2.3"))       // non-digits character
+			XCTAssertThrowsError(try Version("1.*.*"))        // multiple wildcards
 
 		}
 	}
