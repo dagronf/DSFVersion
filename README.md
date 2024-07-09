@@ -64,12 +64,12 @@ Version(10,4) ⟺ Version(10,4,0) ⟺ Version(10,4,0,0)
 Version("5.6.3") ⟺ Version(5,6,3,0)
 ```
 
-### A field that is -1 (`Int.wildcard`) is defined as a wildcard (*)
+### A field that is assigned to `UInt.wildcard` is defined as a wildcard (*)
 
 A wildcard will match against its position and any lesser significant positions
 
 ```swift
-Version("14.7.*") ⟺ Version(14, 7, .wildcard)                   // "14.7.*" is the same as 14,7,-1
+Version("14.7.*") ⟺ Version(14, 7, .wildcard)
 
 Version(1, .wildcard).contains(Version(1, 1, 101))             // 1.* contains 1.1.101
 Version(6, 0, 0, .wildcard).contains(Version(6, 0, 0, 101))    // 6.0.0.* contains 6.0.0.101
@@ -94,7 +94,7 @@ assert(v4.patch.value == 4)
 ```
 ### Wildcards
 
-A wildcard value is specified as a -1 (or `Int.wildcard`) during construction
+A wildcard value is specified as `UInt.wildcard` during construction
 
 ```swift
 let w1 = Version(1, .wildcard)           // 1.*

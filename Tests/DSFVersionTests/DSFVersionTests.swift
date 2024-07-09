@@ -29,7 +29,7 @@ final class VersionTests: XCTestCase {
 			XCTAssertFalse(v1.minor.isAssigned)
 			XCTAssertFalse(v1.patch.isAssigned)
 			XCTAssertFalse(v1.build.isAssigned)
-			XCTAssertEqual(v1.major.intValue, 1)
+			XCTAssertEqual(v1.major.rawValue, 1)
 
 			let v2 = Version(.wildcard)
 			XCTAssertTrue(v2.major == .wildcard)
@@ -41,7 +41,7 @@ final class VersionTests: XCTestCase {
 			let v3 = Version(15, .wildcard)
 			XCTAssertFalse(v3.major == .wildcard)
 			XCTAssertTrue(v3.major.isAssigned)
-			XCTAssertEqual(v3.major.intValue, 15)
+			XCTAssertEqual(v3.major.rawValue, 15)
 
 			XCTAssertTrue(v3.minor == .wildcard)
 			XCTAssertTrue(v3.minor.isAssigned)
@@ -84,7 +84,7 @@ final class VersionTests: XCTestCase {
 		XCTAssertThrowsError(try Version("1,2,3,4"))
 		let v2 = try Version("1.2.3.*")
 		let v333 = try XCTUnwrap(v2)
-		XCTAssert(v333.major.intValue == 1)
+		XCTAssert(v333.major.rawValue == 1)
 		XCTAssertNoThrow(try Version("1.*"))
 		XCTAssertNoThrow(try Version("1"))
 		XCTAssertThrowsError(try Version("1."))
@@ -98,6 +98,11 @@ final class VersionTests: XCTestCase {
 		XCTAssertEqual(Version(1, 2), t2)
 		let t3 = try Version("     1.2    ")
 		XCTAssertEqual(Version(1, 2), t3)
+
+		// Errors from doco
+		XCTAssertThrowsError(try Version("1.2.0-rc.3"))
+		XCTAssertThrowsError(try Version("10..2.3.*"))
+		XCTAssertThrowsError(try Version("15.a4.3"))
 	}
 
 	func testEquality() throws {
