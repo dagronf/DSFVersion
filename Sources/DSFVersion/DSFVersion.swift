@@ -21,7 +21,10 @@
 import Foundation
 
 /// A simple version class supporting major, (optional) minor, (optional) patch and (optional) build integer values.
-public struct DSFVersion: CustomDebugStringConvertible {
+public struct Version: CustomDebugStringConvertible {
+	/// Helper constant for wildcard support
+	public static let Wildcard: Int = -1
+
 	/// Errors thrown during parsing
 	public enum VersionError: Error {
 		/// Tried to parse a version from a string and it was incompatible.
@@ -30,51 +33,47 @@ public struct DSFVersion: CustomDebugStringConvertible {
 		case CannotIncrementWildcard
 	}
 
-	/// An enum identifying the fields within the version
+	/// An enum publicly identifying the fields within the version
 	public enum Field {
+		/// The major field
 		case major
+		/// The minor field
 		case minor
+		/// The patch field
 		case patch
+		/// The build field
 		case build
 	}
-
-	/// Helper constant for wildcard support
-	public static let Wildcard: Int = -1
 
 	// Regular Expression definition
 	private static let RegexpString = #"^(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)$"#
 	private static let Regex = try! NSRegularExpression(pattern: RegexpString, options: [])
 
-	private let fields: [FieldValue]
-
 	/// Major field in the version (major.-.-.-)
-	public var major: FieldValue { return self.fields[0] }
+	public private(set) var major: FieldValue
 	/// Minor field in the version (-.minor.-.-)
-	public var minor: FieldValue { return self.fields[1] }
+	public private(set) var minor: FieldValue
 	/// Patch field in the version (-.-.patch.-)
-	public var patch: FieldValue { return self.fields[2] }
+	public private(set) var patch: FieldValue
 	/// Build field in the version (-.-.-.build)
-	public var build: FieldValue { return self.fields[3] }
+	public private(set) var build: FieldValue
 
 	/// Does the version contain a wildcard (for example, 10.4.* == true, 10.4.3 == false)
-	public var hasWildcard: Bool {
-		return self.major.isWildcard
-		|| self.minor.isWildcard
-		|| self.patch.isWildcard
-		|| self.build.isWildcard
+	@inlinable public var hasWildcard: Bool {
+		self.major.isWildcard || self.minor.isWildcard || self.patch.isWildcard || self.build.isWildcard
 	}
 
 	/// Return a string representation of the version (eg. "10.5.*")
 	public var stringValue: String {
-		var result = self.major.debugDescription
-		if self.minor.isSpecified {
-			result += "." + self.minor.debugDescription
+		var result = self.major.stringValue
+		if self.minor != .unassigned {
+			result += "." + self.minor.stringValue
 		}
-		if self.patch.isSpecified {
-			result += "." + self.patch.debugDescription
+		if self.patch != .unassigned {
+			result += "." + self.patch.stringValue
 		}
-		if self.build.isSpecified {
-			result += "." + self.build.debugDescription
+		if self.build != .unassigned {
+			result += "." + self.build.stringValue
 		}
 		return result
 	}
@@ -85,27 +84,121 @@ public struct DSFVersion: CustomDebugStringConvertible {
 
 	/// Create a new version object
 	/// - Parameters:
-	///   - major: The major version number. Use -1 for a wildcard
-	///   - minor: The minor version number. Use -1 for a wildcard, or nil for not specified
-	///   - patch: The patch version number. Use -1 for a wildcard, or nil for not specified
-	///   - build: The build version number. Use -1 for a wildcard, or nil for not specified
-	public init(_ major: Int, _ minor: Int? = nil, _ patch: Int? = nil, _ build: Int? = nil) {
-		self.fields = [FieldValue(major), FieldValue(minor), FieldValue(patch), FieldValue(build)]
+	///   - major: The major version number
+	///   - minor: The minor version number
+	///   - patch: The patch version number
+	///   - build: The build version number
+	public init(
+		_ major: FieldValue,
+		_ minor: FieldValue = .unassigned,
+		_ patch: FieldValue = .unassigned,
+		_ build: FieldValue = .unassigned
+	) {
+		self.major = major
+		self.minor = minor
+		self.patch = patch
+		self.build = build
+
+		self.sanitize()
 	}
 
+	/// Create a new version object
+	/// - Parameters:
+	///   - major: The major version number.
+	///   - minor: The minor version number.
+	///   - patch: The patch version number.
+	///   - build: The build version number.
+	///
+	///   Notes:
+	///     * Use `Version.Wildcard` for a wildcard value (\*)
+	///     * Use `nil` for a unassigned field (default)
+	public init(_ major: Int? = nil, _ minor: Int? = nil, _ patch: Int? = nil, _ build: Int? = nil) {
+		self.init(FieldValue.map(major), FieldValue.map(minor), FieldValue.map(patch), FieldValue.map(build))
+	}
+
+	/// Create a Version object from a string representation
+	/// - Parameters:
+	///   - versionString: the string to parse
+	/// - Throws: `VersionError.InvalidVersionString` if the string cannot be parsed
+	public init(_ versionString: String) throws {
+		self = try Self.TryParse(versionString)
+	}
+}
+
+private extension Version {
+	mutating func sanitize() {
+		if self.major.isWildcard {
+			self.minor = .unassigned
+			self.patch = .unassigned
+			self.build = .unassigned
+		}
+		else if self.minor.isWildcard || self.minor.isUnassigned {
+			self.patch = .unassigned
+			self.build = .unassigned
+		}
+		else if self.patch.isWildcard || self.patch.isUnassigned {
+			self.build = .unassigned
+		}
+	}
+}
+
+// MARK: - Field Value
+
+public extension Version {
+	/// A version field value`
+	enum FieldValue: Equatable, CustomDebugStringConvertible {
+		/// A field value
+		case value(Int)
+		/// A wildcard value
+		case wildcard
+		/// The field is unassigned
+		case unassigned
+
+		/// String representation of the field
+		public var stringValue: String {
+			switch self {
+			case .unassigned: return ""
+			case .wildcard: return "*"
+			case .value(let value): return "\(value)"
+			}
+		}
+
+		/// String representation of the field
+		public var debugDescription: String { self.stringValue }
+
+		var intValue: Int {
+			switch self {
+			case .unassigned: return 0
+			case .wildcard: return -1
+			case .value(let value): return value
+			}
+		}
+
+		/// Map from an integer value to a field value
+		static func map(_ v: Int?) -> FieldValue {
+			guard let v = v else { return .unassigned }
+			if v == Version.Wildcard { return .wildcard }
+			return .value(v)
+		}
+
+		/// Does this field contain a value?
+		var isSpecified: Bool { self != .unassigned }
+
+		/// Is this field unassigned?
+		public var isUnassigned: Bool { self == .unassigned }
+
+		/// Is this field a wildcard?
+		public var isWildcard: Bool { self == .wildcard }
+	}
+}
+
+public extension Version {
 	/// Try to parse a DSFVersion object from the provided string.
-	/// - Parameter versionString: the string to parse
+	/// - Parameters:
+	///   - versionString: the string to parse
 	/// - Returns: A new version object from the parsed version string
 	/// - Throws: `VersionError.InvalidVersionString` if the version string cannot be parsed
-	@inlinable
-	public static func TryParse(_ versionString: String) throws -> DSFVersion {
-		return try DSFVersion(versionString)
-	}
-
-	/// Create a Version object from the provided string. Throws 'VersionError.InvalidVersionString
-	/// - Parameter versionString: the string to parse
-	/// - Throws: VersionError.InvalidVersionString if the string cannot be parsed
-	public init(_ versionString: String) throws {
+	static func TryParse(_ versionString: String) throws -> Version {
 		// Trim off any whitespace at the start and end of the version string
 		let vstring = versionString.trimmingCharacters(in: .whitespaces)
 
@@ -113,7 +206,7 @@ public struct DSFVersion: CustomDebugStringConvertible {
 		let nsrange = NSRange(vstring.startIndex ..< vstring.endIndex, in: vstring)
 
 		guard
-			let match = DSFVersion.Regex.firstMatch(in: vstring, options: [], range: nsrange),
+			let match = Version.Regex.firstMatch(in: vstring, options: [], range: nsrange),
 			match.range == nsrange
 		else {
 			throw VersionError.InvalidVersionString
@@ -135,7 +228,7 @@ public struct DSFVersion: CustomDebugStringConvertible {
 					// Multiple wildcards encountered
 					throw VersionError.InvalidVersionString
 				}
-				fields.append(FieldValue.Wildcard)
+				fields.append(.wildcard)
 				hasWildcard = true
 			}
 			else {
@@ -143,54 +236,22 @@ public struct DSFVersion: CustomDebugStringConvertible {
 					// This is impossible to hit given the regex definition
 					throw VersionError.InvalidVersionString
 				}
-				fields.append(FieldValue(value))
+				fields.append(.value(value))
 			}
 		}
 
 		// Pad to end with empty fields
 		(fields.count ..< 4).forEach { _ in
-			fields.append(FieldValue.Unassigned)
+			fields.append(.unassigned)
 		}
 
-		self.fields = fields
-	}
-}
-
-// MARK: - Field Value
-
-public extension DSFVersion {
-	/// A struct representing the component value of a version field
-	struct FieldValue: CustomDebugStringConvertible {
-		/// A static wildcard representation
-		public static let Wildcard = FieldValue(-1)
-		/// A static 'unassigned' (not specified) field value
-		public static let Unassigned = FieldValue(nil)
-
-		/// The integer value of the field.
-		public let value: Int
-		/// Was the value specified within the field (for example, "4.5" the major value is specified, the build is not)
-		public let isSpecified: Bool
-		/// Was the field value specified as a wildcard
-		public let isWildcard: Bool
-
-		init(_ value: Int?) {
-			self.value = (value ?? 0)
-			self.isSpecified = (value != nil)
-			self.isWildcard = (value == -1)
-
-			assert(self.value >= -1)
-		}
-
-		public var debugDescription: String {
-			guard self.isSpecified else { return "" }
-			return (self.isWildcard ? "*" : "\(self.value)")
-		}
+		return Version(fields[0], fields[1], fields[2], fields[3])
 	}
 }
 
 // MARK: - Equalities
 
-extension DSFVersion: Equatable, Comparable {
+extension Version: Equatable, Comparable {
 	/// Comparison result
 	public enum ComparisonResult {
 		case ascending
@@ -206,28 +267,28 @@ extension DSFVersion: Equatable, Comparable {
 	/// - Returns: Returns an ComparisonResult value that indicates the lexical ordering of a specified range within the two versions
 	///
 	/// The LHS value cannot contain wildcards, and will return `.error` if it contains one
-	public static func compare(lhs: Self, rhs: Self) -> DSFVersion.ComparisonResult {
+	public static func compare(lhs: Self, rhs: Self) -> Version.ComparisonResult {
 		// Left hand side cannot contain a wildcard range
 		if lhs.hasWildcard { return .error }
 
 		// Major check
-		if lhs.major.value < rhs.major.value { return .ascending }
-		if lhs.major.value > rhs.major.value { return .descending }
+		if lhs.major.intValue < rhs.major.intValue { return .ascending }
+		if lhs.major.intValue > rhs.major.intValue { return .descending }
 
 		// Minor check
 
-		if lhs.minor.value < rhs.minor.value { return .ascending }
-		if lhs.minor.value > rhs.minor.value { return .descending }
+		if lhs.minor.intValue < rhs.minor.intValue { return .ascending }
+		if lhs.minor.intValue > rhs.minor.intValue { return .descending }
 
 		// Patch check
 
-		if lhs.patch.value < rhs.patch.value { return .ascending }
-		if lhs.patch.value > rhs.patch.value { return .descending }
+		if lhs.patch.intValue < rhs.patch.intValue { return .ascending }
+		if lhs.patch.intValue > rhs.patch.intValue { return .descending }
 
 		// Build check
 
-		if lhs.build.value < rhs.build.value { return .ascending }
-		if lhs.build.value > rhs.build.value { return .descending }
+		if lhs.build.intValue < rhs.build.intValue { return .ascending }
+		if lhs.build.intValue > rhs.build.intValue { return .descending }
 
 		// Values are equal
 		return .same
@@ -245,27 +306,27 @@ extension DSFVersion: Equatable, Comparable {
 	public static func == (lhs: Self, rhs: Self) -> Bool {
 		// Major
 
-		if lhs.major.isWildcard { return true } //  v* == v4
-		if rhs.major.isWildcard { return true } //  v4 == v*
-		if lhs.major.value != rhs.major.value { return false } //  v4 != v5
+		if lhs.major == .wildcard { return true } //  v* == v4
+		if rhs.major == .wildcard { return true } //  v4 == v*
+		if lhs.major != rhs.major { return false } //  v4 != v5
 
 		// Minor
 
-		if lhs.minor.isWildcard { return true } //  v4.* == v4.1
-		if rhs.minor.isWildcard { return true } //  v4.3 == v4.*
-		if lhs.minor.value != rhs.minor.value { return false } //  v4.5 != v4.0
+		if lhs.minor == .wildcard { return true } //  v4.* == v4.1
+		if rhs.minor == .wildcard { return true } //  v4.3 == v4.*
+		if lhs.minor != rhs.minor { return false } //  v4.5 != v4.0
 
 		// Patch
 
-		if lhs.patch.isWildcard { return true } //  v4.4.* == v4.4.1
-		if rhs.patch.isWildcard { return true } //  v4.3.2 == v4.3.*
-		if lhs.patch.value != rhs.patch.value { return false } //  v4.5.4 != v4.5.2
+		if lhs.patch == .wildcard { return true } //  v4.4.* == v4.4.1
+		if rhs.patch == .wildcard { return true } //  v4.3.2 == v4.3.*
+		if lhs.patch != rhs.patch { return false } //  v4.5.4 != v4.5.2
 
 		// Build
 
-		if lhs.build.isWildcard { return true } //  v4.4.5.* == v4.4.1
-		if rhs.build.isWildcard { return true } //  v4.3.2 == v4.3.*
-		if lhs.build.value != rhs.build.value { return false } //  v4.5.4 != v4.5.2
+		if lhs.build == .wildcard { return true } //  v4.4.5.* == v4.4.1
+		if rhs.build == .wildcard { return true } //  v4.3.2 == v4.3.*
+		if lhs.build != rhs.build { return false } //  v4.5.4 != v4.5.2
 
 		return true
 	}
@@ -276,21 +337,21 @@ extension DSFVersion: Equatable, Comparable {
 	///
 	///      `4.4.*` contains `4.4.5.1000`
 	///      `4.4.*` does not contain `4.5.0.1001` or `4.2.3`
-	public func contains(_ version: DSFVersion) -> Bool {
+	public func contains(_ version: Version) -> Bool {
 		// Cannot compare if a version being compared against contains a range
 		if version.hasWildcard == true { return false }
 
-		if self.major.isWildcard { return true } //  v* == v4
-		if self.major.value != version.major.value { return false } //  v4 != v5
+		if self.major == .wildcard { return true }       //  v* == v4
+		if self.major != version.major { return false }  //  v4 != v5
 
-		if self.minor.isWildcard { return true } //  v2.* == v2.4
-		if self.minor.value != version.minor.value { return false } //  v2.2 != v2.4
+		if self.minor == .wildcard { return true }       //  v2.* == v2.4
+		if self.minor != version.minor { return false }  //  v2.2 != v2.4
 
-		if self.patch.isWildcard { return true } //  v2.4.* == v2.4.5
-		if self.patch.value != version.patch.value { return false } //  v2.4.3 != v2.4.6
+		if self.patch == .wildcard { return true }       //  v2.4.* == v2.4.5
+		if self.patch != version.patch { return false }  //  v2.4.3 != v2.4.6
 
-		if self.build.isWildcard { return true } //  v2.4.5.* == v2.4.5.111
-		if self.build.value != version.build.value { return false } //  v2.4.5.201 != v2.4.5.111
+		if self.build == .wildcard { return true }       //  v2.4.5.* == v2.4.5.111
+		if self.build != version.build { return false }  //  v2.4.5.201 != v2.4.5.111
 
 		// A perfect match (ie. 1.2.3.4 == 1.2.3.4).  As such it contains it!
 		return true
@@ -298,57 +359,76 @@ extension DSFVersion: Equatable, Comparable {
 
 	@inlinable public static func > (lhs: Self, rhs: Self) -> Bool {
 		// Left hand side cannot contain a wildcard range
-		return DSFVersion.compare(lhs: lhs, rhs: rhs) == .descending
+		return Version.compare(lhs: lhs, rhs: rhs) == .descending
 	}
 
 	@inlinable public static func < (lhs: Self, rhs: Self) -> Bool {
-		return DSFVersion.compare(lhs: lhs, rhs: rhs) == .ascending
+		return Version.compare(lhs: lhs, rhs: rhs) == .ascending
 	}
 
 	@inlinable public static func >= (lhs: Self, rhs: Self) -> Bool {
-		let result = DSFVersion.compare(lhs: lhs, rhs: rhs)
+		let result = Version.compare(lhs: lhs, rhs: rhs)
 		return result == .descending || result == .same
 	}
 
 	@inlinable public static func <= (lhs: Self, rhs: Self) -> Bool {
-		let result = DSFVersion.compare(lhs: lhs, rhs: rhs)
+		let result = Version.compare(lhs: lhs, rhs: rhs)
 		return result == .ascending || result == .same
 	}
 
 	@inlinable public static func != (lhs: Self, rhs: Self) -> Bool {
-		return DSFVersion.compare(lhs: lhs, rhs: rhs) != .same
+		return Version.compare(lhs: lhs, rhs: rhs) != .same
 	}
 }
 
 // MARK: - Increment support
 
-public extension DSFVersion {
-	/// Increment a field number, optionally zeroing all fields of lesser significance
+public extension Version {
+	/// Return a new Version by Incrementing a field number, optionally zeroing all fields of lesser significance
 	/// - Parameters:
 	///   - field: The field to increment
 	///   - zeroLower: if true, zeroes all lesser significant fields  (eg. 10.4.3.1000 --> 10.5.0.0)
 	/// - Returns: A new DSFVersion object.
 	/// - Throws: `CannotIncrementWildcard` if the version object contains a wildcard (eg. 10.4.3.*)*
-	func increment(_ field: Field, zeroLower: Bool = true) throws -> DSFVersion {
-		if self.hasWildcard {
-			throw VersionError.CannotIncrementWildcard
-		}
+	func incrementing(_ field: Field, zeroLower: Bool = true) throws -> Version {
+		guard self.hasWildcard == false else { throw VersionError.CannotIncrementWildcard }
+
 		switch field {
 		case .major:
-			return DSFVersion(self.major.value + 1, zeroLower ? nil : self.minor.value, zeroLower ? nil : self.patch.value, zeroLower ? nil : self.build.value)
+			return Version(
+				.value(self.major.intValue + 1),
+				zeroLower ? .unassigned : .value(self.minor.intValue),
+				zeroLower ? .unassigned : .value(self.patch.intValue),
+				zeroLower ? .unassigned : .value(self.build.intValue)
+			)
 		case .minor:
-			return DSFVersion(self.major.value, self.minor.value + 1, zeroLower ? nil : self.patch.value, zeroLower ? nil : self.build.value)
+			return Version(
+				.value(self.major.intValue),
+				.value(self.minor.intValue + 1),
+				zeroLower ? .unassigned : .value(self.patch.intValue),
+				zeroLower ? .unassigned : .value(self.build.intValue)
+			)
 		case .patch:
-			return DSFVersion(self.major.value, self.minor.value, self.patch.value + 1, zeroLower ? nil : self.build.value)
+			return Version(
+				.value(self.major.intValue),
+				.value(self.minor.intValue),
+				.value(self.patch.intValue + 1),
+				zeroLower ? .unassigned : .value(self.build.intValue)
+			)
 		case .build:
-			return DSFVersion(self.major.value, self.minor.value, self.patch.value, self.build.value + 1)
+			return Version(
+				.value(self.major.intValue),
+				.value(self.minor.intValue),
+				.value(self.patch.intValue),
+				.value(self.build.intValue + 1)
+			)
 		}
 	}
 }
 
 // MARK: - Codable support
 
-extension DSFVersion: Codable {
+extension Version: Codable {
 	public init(from decoder: Decoder) throws {
 		let values = try decoder.singleValueContainer()
 		let value = try values.decode(String.self)
